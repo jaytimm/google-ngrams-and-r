@@ -1,7 +1,7 @@
-American political data & R: some open source resources & methods
------------------------------------------------------------------
+Google n-gram data & R: some methods
+------------------------------------
 
-An R-based guide to accessing, exploring & visualizing Google n-gram data.
+An R-based guide to accessing & sampling Google n-gram data and building some common text structures.
 
 -   [1 Downloading and sampling](#1-Downloading-and-sampling)
 -   [2 Building lexicon](#2-Building-lexicon)
