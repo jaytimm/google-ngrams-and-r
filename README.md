@@ -16,11 +16,6 @@ A developing resource. ... if we wanted to engage with ngram data in earnest, we
 
 -   steal some historical text data to demonstrate a set of methods,
 -   take a peak into some changes in word distributions historically, and
--   speculate some on a few potential examples of lexical semantic change.
-
-Academic linguists who approach the study of language from data-driven perspectives are often critical of Google n-grams. These criticisms (which we won't detail here) are fine, and mostly warranted. But it is still an absolutely lovely resource, and free.
-
-The basic jist of this demo is to create a sample of the Google n-gram corpus that can be used locally.
 
 ``` r
 library(tidyverse)
@@ -29,61 +24,13 @@ library(data.table)
 
 ------------------------------------------------------------------------
 
-### 1 Overview of n-gram corpus
+### 1 Download, sample & aggregate
 
-Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st.
-
-``` r
-one_mil <- read.csv('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt', 
-         sep = '\t', 
-         header = FALSE, 
-         skip = 1) %>%
-  rename(Year = V1, Freq = V2, 
-         Page_Count = V3, Volume_Count = V4) %>%
-  mutate(Freq = as.numeric(Freq))
-```
-
-**Example portion** of corpus descriptives made available by Google:
-
-``` r
-one_mil %>% head() %>% knitr::kable()
-```
-
-|  Year|    Freq|  Page\_Count|  Volume\_Count|
-|-----:|-------:|------------:|--------------:|
-|  1520|   51191|          112|              1|
-|  1527|    4384|           18|              1|
-|  1541|    5056|           27|              1|
-|  1574|   60089|          345|              1|
-|  1575|  374033|         1059|              2|
-|  1576|   26278|           81|              1|
-
-**Full corpus size**. Over 100 billion words.
-
-``` r
-sum(one_mil$Freq)
-```
-
-    ## [1] 111452435771
-
-**Size of corpus by year**. From the middle of the 19th century onward, 50+ million words per year.
-
-``` r
-one_mil%>% 
-  ggplot(aes(x= Year, y = Freq)) +
-  geom_line(color = 'steelblue', size = .75) +
-  expand_limits(y=0)+
-  theme(axis.text.x=element_text(angle = 45, hjust = 1)) +
-  labs(title = 'The English One Million corpus')
-```
-
-![](README1_files/figure-markdown_github/unnamed-chunk-5-1.png)
+Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words.
 
 **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
 
 ------------------------------------------------------------------------
-
-### Download, sample & aggregate
 
 To start the sampling process, we build two simple functions. The **first function** downloads & unzips a single file of the corpus to a temporary folder.
 
@@ -103,7 +50,7 @@ get_zip_csv <- function (url) {
   out}
 ```
 
-A **random portion** of the first file of the corpus is presented below:
+A **random portion** of the first file of the 5-gram corpus is presented below:
 
 -   V1 = 5-gram
 -   V2 = Date of publication
@@ -117,13 +64,13 @@ unzipped_eg <- get_zip_csv(url)  #~11 million rows.
 unzipped_eg %>% sample_n(5) %>% knitr::kable()
 ```
 
-| V1                         |    V2|   V3|   V4|   V5|
-|:---------------------------|-----:|----:|----:|----:|
-| one the like of which      |  1985|    1|    1|    1|
-| Then she threw open the    |  1919|    1|    1|    1|
-| "career of politics        |  1915|    1|    1|    1|
-| worst forms of the disease |  1848|    1|    1|    1|
-| in a view of a             |  1907|    1|    1|    1|
+| V1                       |    V2|   V3|   V4|   V5|
+|:-------------------------|-----:|----:|----:|----:|
+| for an instant to say    |  1914|    1|    1|    1|
+| are he won ' t           |  1917|    2|    2|    2|
+| The entire length of the |  1884|   46|   46|   38|
+| "After this              |  1811|    2|    2|    2|
+| "of his officers         |  1864|    1|    1|    1|
 
 The **second function** performs a variety of tasks with the aim of sampling & aggregating the raw 5-gram files. Function parameters & details:
 
@@ -185,11 +132,11 @@ unzipped_eg %>%
 | MURDERED THE TURNKEY ON FRIDAY | \[1858,1883)  |     8|
 | YEAR OR TWO AND SEE            | \[1933,1958)  |     5|
 
-**Apply functions** to all ~800 files/sub-corpora, and store locally. Depending on connection speed, this could take a while. A good processing rate would be 3/4 files per minute. Total size of processed files is ~6.7 Gb.
+We then **apply functions** to all ~800 files/sub-corpora, and store locally. Depending on connection speed, this could take a while. A good processing rate would be 3/4 files per minute. Total size of processed files is ~6.7 Gb.
 
 ``` r
 file_names <- c(1:799)
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\raw")
+setwd(local_raw)
 
 for (i in 1:length(file_names)) {
   url <- paste0('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gram-20090715-', file_names[i], '.csv.zip')
@@ -222,8 +169,10 @@ Per each file/sub-corpus generated above, here we:
 Resulting data structure is a list of data frames, in which each sub-corpus is represented as ...
 
 ``` r
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\raw")
-gfiles <- list.files(path="C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\raw", pattern = ".csv", recursive=TRUE) 
+setwd(local_raw)
+gfiles <- list.files(path=local_raw, 
+                     pattern = ".csv", 
+                     recursive=TRUE) 
 
 grams <- lapply(1:length(gfiles), function (y)
   data.table::fread(gfiles[y])%>%
@@ -390,7 +339,7 @@ freqs %>%
         legend.position = 'bottom')
 ```
 
-![](README1_files/figure-markdown_github/unnamed-chunk-33-1.png)
+![](README1_files/figure-markdown_github/unnamed-chunk-30-1.png)
 
 Compare to freq from one of the viewer packages.
 
@@ -402,7 +351,7 @@ ngramr::ngram(search, year_start = 1808) %>%
   theme(legend.position = 'bottom')
 ```
 
-![](README1_files/figure-markdown_github/unnamed-chunk-34-1.png)
+![](README1_files/figure-markdown_github/unnamed-chunk-31-1.png)
 
 ------------------------------------------------------------------------
 
