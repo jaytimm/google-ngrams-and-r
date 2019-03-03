@@ -1,5 +1,3 @@
-TWEET: ??
-
 Google n-gram data & R: some methods
 ------------------------------------
 
@@ -29,9 +27,7 @@ library(data.table)
 
 ------------------------------------------------------------------------
 
-### 1 Download, sample & aggregate
-
-#### Corpus overview
+### Overview of n-gram corpus
 
 Google has a host of corpora -- here we work with the corpus dubbed the "English One Million" corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st.
 
@@ -44,8 +40,6 @@ one_mil <- read.csv('http://storage.googleapis.com/books/ngrams/books/googlebook
          Page_Count = V3, Volume_Count = V4) %>%
   mutate(Freq = as.numeric(Freq))
 ```
-
-    ## Warning: package 'bindrcpp' was built under R version 3.4.4
 
 Example portion of corpus descriptives:
 
@@ -81,7 +75,7 @@ one_mil%>%
   labs(title = 'The English One Million corpus')
 ```
 
-![](README2_files/figure-markdown_github/unnamed-chunk-5-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-5-1.png)
 
 **The corpus** is comprised of ...
 
@@ -92,9 +86,11 @@ file_names <- c(1:799)
 url <- 'http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gram-20090715-2.csv.zip'
 ```
 
-#### Some functions
+------------------------------------------------------------------------
 
-To start the sampling process, we build two simple functions. The first downloads & unzips a single file of the corpus to a temporary folder.
+### Download, sample & aggregate
+
+To start the sampling process, we build two simple functions. The **first function** downloads & unzips a single file of the corpus to a temporary folder.
 
 ``` r
 get_zip_csv <- function (url) {
@@ -119,18 +115,18 @@ unzipped_eg <- get_zip_csv(url)  #~11 million rows.
 unzipped_eg %>% sample_n(10) %>% knitr::kable()
 ```
 
-| V1                             |    V2|   V3|   V4|   V5|
-|:-------------------------------|-----:|----:|----:|----:|
-| me lose my balance .           |  1990|    1|    1|    1|
-| "children . His widow          |  1909|    1|    1|    1|
-| resigned the presidency of the |  1978|    6|    6|    6|
-| "has taken his departure       |  1963|    1|    1|    1|
-| "the houses of bishops         |  1825|    6|    6|    6|
-| "                              |  1907|    1|    1|    1|
-| "statement                     |  1943|    2|    2|    2|
-| in no way threatened .         |  1938|    2|    2|    2|
-| at the full strength of        |  1940|    1|    1|    1|
-| and not because we think       |  1863|    1|    1|    1|
+| V1                                |    V2|   V3|   V4|   V5|
+|:----------------------------------|-----:|----:|----:|----:|
+| p . 231 . I                       |  1850|    1|    1|    1|
+| a month to do the                 |  1932|    2|    2|    2|
+| a - vis the world                 |  1966|   15|   15|   13|
+| """ answered Frank ; """          |  1864|    1|    1|    1|
+| who have made the experiment      |  1952|    1|    1|    1|
+| following note of a conversation  |  1834|    4|    4|    4|
+| disagreement of the ideas whereof |  1913|    1|    1|    1|
+| "of such habits                   |  1906|    1|    1|    1|
+| "rule the state . """             |  1917|    2|    2|    2|
+| the teeth as soon as              |  1924|    1|    1|    1|
 
 ``` r
 sum(as.numeric(unzipped_eg$V3))
@@ -138,8 +134,9 @@ sum(as.numeric(unzipped_eg$V3))
 
     ## [1] 35217082
 
-The second function performs a variety of tasks with the aim of sampling & aggregating the raw 5-gram files.
-A simple function for taking a sample of the full Google ngram sub-corpus. Example parameters could include: start\_date, end\_date, generation, samp1, samp2
+The **second function** performs a variety of tasks with the aim of sampling & aggregating the raw 5-gram files. Function parameters & details:
+
+-   A simple function for taking a sample of the full Google ngram sub-corpus. Example parameters could include: start\_date, end\_date, generation, samp1, samp2
 
 Sampling procedure could certainly be more systematic.
 
@@ -221,6 +218,8 @@ for (i in 1:length(file_names)) {
   }
 ```
 
+------------------------------------------------------------------------
+
 ### Aggregate & sample again - and restructure
 
 The next step is to aggregate the sampled/processed sub-corpora into a single corpus. We also want to ... The output, then, is a list of ...
@@ -252,6 +251,8 @@ Resulting data structure:
 | STRENUOUSLY | \[1883,1908)  |     2|    2|
 | OPPOSED     | \[1883,1908)  |     2|    2|
 | NEW         | \[1983,2008\] |     1|    3|
+
+------------------------------------------------------------------------
 
 ### Build corpus
 
@@ -292,13 +293,11 @@ grams <- split(grams, f = grams$quarter)
 grams <- lapply(grams, select, -quarter) #1.8 Gb
 ```
 
+------------------------------------------------------------------------
+
 ### Building historical feature matrices
 
 Build feature-context matrices for each generation & store locally as RDS.
-
-#### Brief interlude on the utlity of `tidytext` & `textmineR`
-
-(in relation to Google n-grams) (as well as annotated corpora)
 
 Via a combination of some really jazzy functions. Using more generic data structures. Brilliant combo of functions for working with google n-gram structures.
 
@@ -324,36 +323,26 @@ So, with this structure in tow, any number of VSM-based historical semantic anal
 
 ``` r
 library(Matrix)
+ttms[[5]][115:125,16000:16010]  
 ```
 
-    ## 
-    ## Attaching package: 'Matrix'
+    ## 11 x 11 sparse Matrix of class "dgCMatrix"
+    ##                                    
+    ## ABSTINENCE   . . . . . . . 12 . . .
+    ## ABSTRACT     . . . . . . .  . . . .
+    ## ABSTRACTED   . . . . . . .  . . . .
+    ## ABSTRACTION  . . . . . . .  . . . .
+    ## ABSTRACTIONS . . . . . . .  . . . .
+    ## ABSTRACTS    . . . . . . .  1 . . .
+    ## ABSTRUSE     . . . . . . .  2 . . .
+    ## ABSURD       . . 3 . . . . 18 . . .
+    ## ABSURDITIES  . . . . . . .  . . . .
+    ## ABSURDITY    . . . . . . .  . . . .
+    ## ABSURDLY     . . . . . . .  . . . .
 
-    ## The following object is masked from 'package:tidyr':
-    ## 
-    ##     expand
+------------------------------------------------------------------------
 
-``` r
-ttms[[5]][1:10,1:10]  #Find interesting portion.
-```
-
-    ## 10 x 10 sparse Matrix of class "dgCMatrix"
-
-    ##    [[ suppressing 10 column names 'AA', 'AARON', 'AB' ... ]]
-
-    ##                                                      
-    ## AA          77   .    .   .   .    .    .   .    .  .
-    ## AARON        . 708    .   .   .    .    .   .    .  .
-    ## AB           .   . 2409   .   .    .    .   .    .  .
-    ## ABACK        .   .    . 703   .    .    .   .    .  .
-    ## ABAFT        .   .    .   . 227    .    .   .    .  .
-    ## ABANDON      .   .    .   .   . 7732    .   .    .  .
-    ## ABANDONED    .   .    .   .   .    . 8244   .    .  .
-    ## ABANDONING   .   .    .   .   .    .    . 599    .  .
-    ## ABANDONMENT  .   .    .   .   .    .    .   . 3772  .
-    ## ABANDONS     .   .    .   .   .    .    .   .    . 55
-
-### Extract frequencies from matrices via diagonals.
+### Extract form frequencies
 
 ``` r
 freqs <- lapply(1:8, function (x)
@@ -387,6 +376,8 @@ freqs %>%
 | PRECIPITATION |    8.34|    7.52|    7.19|    8.03|   14.83|   10.16|   10.00|    4.33|
 | GROOMS        |    2.65|    1.91|    1.57|    1.00|    0.51|    0.37|    0.31|    0.29|
 | CLEARS        |    1.05|    1.33|    0.51|    0.88|    1.38|    0.86|    0.96|    0.68|
+
+------------------------------------------------------------------------
 
 ### Lemmatizing feature matrix
 
@@ -433,16 +424,10 @@ Lemmatize list of matrices.
 
 ``` r
 library(Matrix.utils)
-```
 
-    ## Warning: package 'Matrix.utils' was built under R version 3.4.4
-
-``` r
 lemmatize_matrix <- function (x) {
-
   colnames(x) <- lex$lemma
   rownames(x) <- lex$lemma
-
   y <- t(aggregate.Matrix(x, colnames(x), fun = 'sum'))
   aggregate.Matrix(y, colnames(x), fun = 'sum')
 }
@@ -473,10 +458,36 @@ ttms_lemmed[[5]][1:10,1:10]
     ## ABATE        .   .    .   .   .     .    .   . 1092   .
     ## ABATEMENT    .   .    .   .   .     .    .   .    . 729
 
-### Summary
-
-Present the story of file size reduction. Reiterate the smarter approach.
+------------------------------------------------------------------------
 
 ### Comparing some (relative) frequencies
 
+``` r
+search <- c( 'accepted', 'creation', 'misery', 'movements', 'safe','serve')
+
+freqs %>%
+  filter(form %in% toupper(search)) %>%
+  ggplot(aes(x= generation, y = ppm, group = form, color = form)) +
+  geom_line(size=1.25) +
+  #expand_limits(y=0)+
+  theme(axis.text.x=element_text(angle = 45, hjust = 1),
+        legend.position = 'bottom')
+```
+
+![](README_files/figure-markdown_github/unnamed-chunk-35-1.png)
+
 Compare to freq from one of the viewer packages.
+
+``` r
+#devtools::install_github("seancarmody/ngramr")
+ngramr::ngram(search, year_start = 1808) %>%
+  ggplot(aes(x=Year, y=Frequency, colour=Phrase)) +
+  geom_line(size=1.25) +
+  theme(legend.position = 'bottom')
+```
+
+![](README_files/figure-markdown_github/unnamed-chunk-36-1.png)
+
+------------------------------------------------------------------------
+
+### Summary
