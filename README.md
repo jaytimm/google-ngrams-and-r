@@ -26,11 +26,9 @@ library(data.table)
 
 ### 1 Download, sample & aggregate
 
-Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words.
+> Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words.
 
-**The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
-
-------------------------------------------------------------------------
+> **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
 
 To start the sampling process, we build two simple functions. The **first function** downloads & unzips a single file of the corpus to a temporary folder.
 
@@ -64,13 +62,13 @@ unzipped_eg <- get_zip_csv(url)  #~11 million rows.
 unzipped_eg %>% sample_n(5) %>% knitr::kable()
 ```
 
-| V1                       |    V2|   V3|   V4|   V5|
-|:-------------------------|-----:|----:|----:|----:|
-| for an instant to say    |  1914|    1|    1|    1|
-| are he won ' t           |  1917|    2|    2|    2|
-| The entire length of the |  1884|   46|   46|   38|
-| "After this              |  1811|    2|    2|    2|
-| "of his officers         |  1864|    1|    1|    1|
+| V1                         |    V2|   V3|   V4|   V5|
+|:---------------------------|-----:|----:|----:|----:|
+| and had been received with |  1887|   12|   12|   12|
+| "instead of in money       |  1879|    2|    2|    2|
+| "for instance              |  1883|    4|    4|    4|
+| truth and duty . The       |  1883|    3|    3|    3|
+| "the succession of sounds  |  1969|    2|    2|    2|
 
 The **second function** performs a variety of tasks with the aim of sampling & aggregating the raw 5-gram files. Function parameters & details:
 
@@ -292,6 +290,10 @@ ttms[[5]][115:125,16000:16010]
 
 ### Extract form frequencies
 
+A convenience of the FCM as a data structure is that token frequencies (in our heavily sampled corpus of 5-grams) for each form in the lexicon are stored in the diagonal of the FCM. Here, we extract these frequencies, and relativize them by the overall size of the corpus by generation. Frequencies are presented per 1 million words (ppm).
+
+> Ppm frequencies are generally based on 1 million words of proper text, which includes stop words. Frequencies presented here are per 1 million words of non-stop, 5-gram text. So, while our frequencies have relative value, they cannot be compared to other corpora in any meaningful way. Which is fine. Just an FYI.
+
 ``` r
 freqs <- lapply(1:8, function (x)
   data.frame(form = rownames(ttms[[x]]), 
@@ -307,7 +309,7 @@ freqs <- lapply(1:8, function (x)
   select(-corpus)
 ```
 
-Demo on wide data.
+**Historical frequencies** for a random sample of forms in the lexicon:
 
 ``` r
 freqs %>%
@@ -325,6 +327,93 @@ freqs %>%
 | FISH             |   53.26|   61.44|   65.69|   60.80|   44.41|   47.36|   40.52|   47.59|
 | SAKE             |  263.42|  417.80|  260.20|  280.17|  454.40|  221.99|  200.70|  238.91|
 
+------------------------------------------------------------------------
+
+### Lemmatizing feature matrix
+
+Feature/lexicon/FCM compression.
+
+For good measure, we next demonstrate some methods for "lemmatizing" our historical FCMs. A lemma is properly defined as a word form/part-of-speech pair, and all of its inflectional variants.
+
+eg, 'possessed' would go away. Participle forms used in modification.
+
+``` r
+lemma_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt'), 
+                      header = FALSE, 
+                      skip = 10, sep = '\t')%>%
+  separate(V1, into = c('lemma', 'form'), sep = ' -> ') %>%
+  mutate(lemma = toupper(gsub('/.*$', '', lemma)),
+         form = toupper(form))%>%
+  separate_rows (form, sep = ',') %>%
+  filter(grepl("^[A-Z]+$", lemma)) %>%
+  group_by(form) %>% slice(1) 
+#some single forms are mapped to multiple lemmas -- n=136 
+```
+
+~ 25k -&gt; 16.5k via poor man's lemmatization
+
+``` r
+lex <- freqs %>% filter(generation == 1808) %>%
+  left_join(lemma_lexicon) %>%
+  mutate(lemma = ifelse(is.na(lemma), form, lemma)) %>%
+  select(form, lemma)
+```
+
+``` r
+lex %>% slice(5:12) %>% knitr::kable()
+```
+
+| form        | lemma       |
+|:------------|:------------|
+| ABAFT       | ABAFT       |
+| ABANDON     | ABANDON     |
+| ABANDONED   | ABANDON     |
+| ABANDONING  | ABANDON     |
+| ABANDONMENT | ABANDONMENT |
+| ABANDONS    | ABANDON     |
+| ABASHED     | ABASH       |
+| ABATE       | ABATE       |
+
+Lemmatize list of matrices.
+
+``` r
+library(Matrix.utils)
+
+lemmatize_matrix <- function (x) {
+  colnames(x) <- lex$lemma
+  rownames(x) <- lex$lemma
+  y <- t(aggregate.Matrix(x, colnames(x), fun = 'sum'))
+  aggregate.Matrix(y, colnames(x), fun = 'sum')
+}
+```
+
+``` r
+ttms_lemmed <- lapply(1:8, function (z)
+  ttms[[z]] %>% lemmatize_matrix()) 
+```
+
+``` r
+ttms_lemmed[[5]][1:10,1:10]
+```
+
+    ## 10 x 10 sparse Matrix of class "dgCMatrix"
+
+    ##    [[ suppressing 10 column names 'AA', 'AARON', 'AB' ... ]]
+
+    ##                                                        
+    ## AA          77   .    .   .   .     .    .   .    .   .
+    ## AARON        . 708    .   .   .     .    .   .    .   .
+    ## AB           .   . 2409   .   .     .    .   .    .   .
+    ## ABACK        .   .    . 703   .     .    .   .    .   .
+    ## ABAFT        .   .    .   . 227     .    .   .    .   .
+    ## ABANDON      .   .    .   .   . 16630    .   .    .   .
+    ## ABANDONMENT  .   .    .   .   .     . 3772   .    .   .
+    ## ABASH        .   .    .   .   .     .    . 118    .   .
+    ## ABATE        .   .    .   .   .     .    .   . 1092   .
+    ## ABATEMENT    .   .    .   .   .     .    .   .    . 729
+
+------------------------------------------------------------------------
+
 ### Comparing some (relative) frequencies
 
 ``` r
@@ -339,7 +428,7 @@ freqs %>%
         legend.position = 'bottom')
 ```
 
-![](README1_files/figure-markdown_github/unnamed-chunk-30-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-30-1.png)
 
 Compare to freq from one of the viewer packages.
 
@@ -351,7 +440,7 @@ ngramr::ngram(search, year_start = 1808) %>%
   theme(legend.position = 'bottom')
 ```
 
-![](README1_files/figure-markdown_github/unnamed-chunk-31-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-31-1.png)
 
 ------------------------------------------------------------------------
 
