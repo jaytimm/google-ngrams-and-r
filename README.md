@@ -3,10 +3,12 @@ Google n-gram data & R: some methods
 
 An R-based guide to accessing & sampling Google n-gram data, with a focus on/aim of building some text structures for investigating lexical semantic change historically.
 
--   [1 Downloading and sampling](#1-Downloading-and-sampling)
--   [2 Building lexicon](#2-Building-lexicon)
--   [3 Historical frequency](#3-Historical-frequency)
--   [4 Building feature matrices](#4-Building-frequency-matrices)
+-   [1 Overview of n-gram corpus](#1-Overview-of-n-gram-corpus)
+-   [2 Download-sample-aggregate](#2-Download-sample-aggregate)
+-   [3 Sample-aggregate-restructure](#Sample-aggregate-restructure)
+-   [4 Building historical corpora](#4-Building-historical-corpora)
+-   [5 Building historical feature matrices](#5-Building-historical-feature-matrices)
+-   [5 Form frequency from matrices](#4-Building-historical-corpora))
 
 Smart approach, versus less smart approach. Sample ngram data / reduce mass ... to a size that is manageable locally.
 
@@ -27,9 +29,9 @@ library(data.table)
 
 ------------------------------------------------------------------------
 
-### Overview of n-gram corpus
+### 1 Overview of n-gram corpus
 
-Google has a host of corpora -- here we work with the corpus dubbed the "English One Million" corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st.
+Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st.
 
 ``` r
 one_mil <- read.csv('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt', 
@@ -41,7 +43,7 @@ one_mil <- read.csv('http://storage.googleapis.com/books/ngrams/books/googlebook
   mutate(Freq = as.numeric(Freq))
 ```
 
-Example portion of corpus descriptives:
+**Example portion** of corpus descriptives made available by Google:
 
 ``` r
 one_mil %>% head() %>% knitr::kable()
@@ -56,7 +58,7 @@ one_mil %>% head() %>% knitr::kable()
 |  1575|  374033|         1059|              2|
 |  1576|   26278|           81|              1|
 
-Full corpus size:
+**Full corpus size**. Over 100 billion words.
 
 ``` r
 sum(one_mil$Freq)
@@ -64,7 +66,7 @@ sum(one_mil$Freq)
 
     ## [1] 111452435771
 
-Size of corpus by year:
+**Size of corpus by year**. From the middle of the 19th century onward, 50+ million words per year.
 
 ``` r
 one_mil%>% 
@@ -75,16 +77,9 @@ one_mil%>%
   labs(title = 'The English One Million corpus')
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-5-1.png)
+![](README1_files/figure-markdown_github/unnamed-chunk-5-1.png)
 
-**The corpus** is comprised of ...
-
-5-gram corpus -- comprised of ~800 files. File composition for this corpus version is not alpabetical, and ... largely arbitrary.
-
-``` r
-file_names <- c(1:799)
-url <- 'http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gram-20090715-2.csv.zip'
-```
+**The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
 
 ------------------------------------------------------------------------
 
@@ -108,37 +103,38 @@ get_zip_csv <- function (url) {
   out}
 ```
 
-Example portion of corpus file: We focus on frequency.
+A **random portion** of the first file of the corpus is presented below:
+
+-   V1 = 5-gram
+-   V2 = Date of publication
+-   V3 = token frequency of 5-gram in sub-corpus
+-   V4 = page count of 5-gram in sub-corpus
+-   V5 = volume (or text frequency) count of 5-gram in sub-corpus
 
 ``` r
+url <- 'http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gram-20090715-1.csv.zip'
 unzipped_eg <- get_zip_csv(url)  #~11 million rows.
-unzipped_eg %>% sample_n(10) %>% knitr::kable()
+unzipped_eg %>% sample_n(5) %>% knitr::kable()
 ```
 
-| V1                                |    V2|   V3|   V4|   V5|
-|:----------------------------------|-----:|----:|----:|----:|
-| p . 231 . I                       |  1850|    1|    1|    1|
-| a month to do the                 |  1932|    2|    2|    2|
-| a - vis the world                 |  1966|   15|   15|   13|
-| """ answered Frank ; """          |  1864|    1|    1|    1|
-| who have made the experiment      |  1952|    1|    1|    1|
-| following note of a conversation  |  1834|    4|    4|    4|
-| disagreement of the ideas whereof |  1913|    1|    1|    1|
-| "of such habits                   |  1906|    1|    1|    1|
-| "rule the state . """             |  1917|    2|    2|    2|
-| the teeth as soon as              |  1924|    1|    1|    1|
-
-``` r
-sum(as.numeric(unzipped_eg$V3))
-```
-
-    ## [1] 35217082
+| V1                         |    V2|   V3|   V4|   V5|
+|:---------------------------|-----:|----:|----:|----:|
+| one the like of which      |  1985|    1|    1|    1|
+| Then she threw open the    |  1919|    1|    1|    1|
+| "career of politics        |  1915|    1|    1|    1|
+| worst forms of the disease |  1848|    1|    1|    1|
+| in a view of a             |  1907|    1|    1|    1|
 
 The **second function** performs a variety of tasks with the aim of sampling & aggregating the raw 5-gram files. Function parameters & details:
 
--   A simple function for taking a sample of the full Google ngram sub-corpus. Example parameters could include: start\_date, end\_date, generation, samp1, samp2
+-   filter sub-corpus by dates of publication
+-   sample sub-corpus
+-   remove 5-ngrams with punctuation
+-   create new time bins
+-   aggregate 5-gram frequencies per new time bins
+-   sample again
 
-Sampling procedure could certainly be more systematic.
+Sampling procedure could certainly be more systematic. Here, we are only interested in token frequencies; once we aggregate over dates of publication, text/page frequencies become useless.
 
 ``` r
 sample_ngram <- function (x, 
@@ -150,27 +146,25 @@ sample_ngram <- function (x,
   set.seed(99)
   x <- x[sample(1:nrow(x), samp1, 
                 replace=FALSE),] 
-  
-  x <- x[grepl("^[a-z ]+$", V1, ignore.case = TRUE)] #Remove grams with punctuation
+  x <- x[grepl("^[a-z ]+$", V1, ignore.case = TRUE)] 
+  #Remove grams with punctuation
   x$V9 <- cut(x$V2, seq(start_date,end_date,generation), 
               right=FALSE,
               include.lowest = TRUE,
               dig.lab = 4) #Create new time bins
-
   x[, V1 := toupper(V1)]
-  x <- x[, list(V3 = sum(V3)), by = list(V1, V9)] #Aggregate freqs to new time bins
-
+  x <- x[, list(V3 = sum(V3)), by = list(V1, V9)] 
+  #Aggregate freqs to new time bins
   setnames(x, 
            old = c('V1', 'V9', 'V3'), 
            new = c('five_gram', 'quarter', 'freq'))
-
   set.seed(99)
   x[sample(1:nrow(x), samp2,
                 replace=FALSE),]
 }
 ```
 
-Sample output:
+The table below presents a random portion of the sampled/aggregated output:
 
 ``` r
 unzipped_eg %>%
@@ -179,28 +173,22 @@ unzipped_eg %>%
                generation = 25,
                samp1 = 5000000,
                samp2 = 200000) %>%
-  sample_n(10) %>%
+  sample_n(5) %>%
   knitr::kable()
 ```
 
-| five\_gram                             | quarter       |  freq|
-|:---------------------------------------|:--------------|-----:|
-| WAS COME TO HER HOUSE                  | \[1833,1858)  |    11|
-| SUFFICIENTLY IMPROVED BY THESE SEVERAL | \[1883,1908)  |     6|
-| IN THE CUSTOM HOUSE OF                 | \[1908,1933)  |    10|
-| WITH THE MUSIC OF ITS                  | \[1933,1958)  |    13|
-| WOULD NOT SOONER ENCOUNTER THAN        | \[1833,1858)  |     2|
-| LOW INCIDENCE OF ADVERSE EFFECTS       | \[1958,1983)  |     6|
-| TEN YEARS BEFORE HER DEATH             | \[1858,1883)  |    11|
-| TIME AS THEY HAVE DONE                 | \[1933,1958)  |     2|
-| POWER TO GAIN THE FRIENDSHIP           | \[1933,1958)  |     1|
-| DISAPPEARANCE OF THE JEWISH PEOPLE     | \[1983,2008\] |    10|
+| five\_gram                     | quarter       |  freq|
+|:-------------------------------|:--------------|-----:|
+| FOR ME BY MY ASSISTANT         | \[1983,2008\] |     1|
+| THE YOUNG ARE HATCHED ABOUT    | \[1858,1883)  |     7|
+| THE STRONG OPPOSITION OF MANY  | \[1958,1983)  |    13|
+| MURDERED THE TURNKEY ON FRIDAY | \[1858,1883)  |     8|
+| YEAR OR TWO AND SEE            | \[1933,1958)  |     5|
 
-Apply functions, and ouput data set locally: Depending on connection speed, this could take a while.
-
-Cite size of folder.
+**Apply functions** to all ~800 files/sub-corpora, and store locally. Depending on connection speed, this could take a while. A good processing rate would be 3/4 files per minute. Total size of processed files is ~6.7 Gb.
 
 ``` r
+file_names <- c(1:799)
 setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\raw")
 
 for (i in 1:length(file_names)) {
@@ -222,7 +210,16 @@ for (i in 1:length(file_names)) {
 
 ### Aggregate & sample again - and restructure
 
-The next step is to aggregate the sampled/processed sub-corpora into a single corpus. We also want to ... The output, then, is a list of ...
+At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurence matrices, the next step is to restructure the 5-gram data some, as well as (continue to) condense file sizes.
+
+Per each file/sub-corpus generated above, here we:
+
+-   sample 5-grams again
+-   uniquely id 5-grams
+-   flip 5-grams as character string to long format
+-   remove stop words
+
+Resulting data structure is a list of data frames, in which each sub-corpus is represented as ...
 
 ``` r
 setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\raw")
@@ -238,10 +235,12 @@ grams <- lapply(1:length(gfiles), function (y)
     as.data.table()
 )
 
-names(grams) <- file_names
+names(grams) <- file_names  #Store locally.
 ```
 
-Resulting data structure:
+A sample portion of the **new sub-corpus data structure** is presented below.
+
+A total of 135.4k unique forms in 5-gram corpus. Size of 5-gram corpus = 1.3bil words.
 
 | ngram       | quarter       |  freq|   id|
 |:------------|:--------------|-----:|----:|
@@ -256,9 +255,11 @@ Resulting data structure:
 
 ### Build corpus
 
-A total of 135.4k unique forms in 5-gram corpus. Size of 5-gram corpus = 1.3bil words.
+At this point, we have ... in which each 5-gram can be construed as a small text or a co-occurrence context.
 
-Collapse corpus. Create a unique corpus id for each ngram. --- as a document id of sorts as we move towards building a DTM then FCM.
+Our ultimate goal is to create co-occurrence matrices for each of our newly defined generations/quarters/time bins. To do this, we first need to convert our list of randomly assembled sub-corpora to a list of generation-based sub-corpora.
+
+First things first, then, we collapse our list of sub-corpora to a single corpus. Then we uniquely identify each 5-gram. ~3.2 Gb.
 
 ``` r
 grams <- grams %>% data.table::rbindlist(idcol = 'corp') 
@@ -270,7 +271,7 @@ grams[ , id := .GRP, by = key(grams)]
 grams[, corp := NULL]  #n = 120,920,432, 3.2Gb
 ```
 
-The 25k most frequent forms occurring in all eight generations. This could be rethought perhaps -- but fine for now + demo purposes.
+As our interest is utlimately in changes in word distributions historically, we next identify the 25k most frequent forms in our 5-gram corpus that occur in all eight generations.
 
 ``` r
 top25k <- grams[, list(freq = sum(freq), gens = length(unique(quarter))), 
@@ -281,7 +282,7 @@ top25k <- grams[, list(freq = sum(freq), gens = length(unique(quarter))),
   data.table()
 ```
 
-Split corpus to quarters/generations & store locally:
+We filter the full 5-gram corpus to the list of forms generated above, and split the corpus into a new list of data frames by generation. ~1.8 Gb.
 
 ``` r
 #Reduce corpus to top25k lexicon
@@ -297,11 +298,11 @@ grams <- lapply(grams, select, -quarter) #1.8 Gb
 
 ### Building historical feature matrices
 
-Build feature-context matrices for each generation & store locally as RDS.
+At this point, we are finished with the time- & memory-consumptive portion of the workflow. Next, we want to transform each of our sub-corpora into a feature-term (or feature-co-coccurrence) matrix.
 
-Via a combination of some really jazzy functions. Using more generic data structures. Brilliant combo of functions for working with google n-gram structures.
+> Represent each form in our 25k lexicon in terms of the frequencies in which they co-occur with other constituents (or features) of the 25k lexicon. Here, a given form is said to "co-occur" with a given feature when form & feature are found in the same 5-gram.
 
-The `tidytext` package has an absolutely lovely collection of functions for dealing with intermediary text structures.
+Treating each uniquely identified 5-gram as a "document," we first transform each sub-corpus into a Document-Term Matrix (DTM) using the `cast_sparse` function from the `tidytext` package. For our purposes here, this is an intermediary data structure. We then convert the DTM to a feature-co-occurrence matrix (FCM) using the `Dtm2Tcm` function from the `testmineR` package. This particular workflow is ideal when working with aggregated text structures as a starting point.
 
 ``` r
 ttms <- lapply(1:8, function (y)
@@ -319,7 +320,7 @@ ttms <- lapply(1:8, function (y)
 names(ttms) <- names(grams)
 ```
 
-So, with this structure in tow, any number of VSM-based historical semantic analyses can be had. Including, but certainly not limited to, ...
+A small portion of 25k x 25k FCM for **generation 5** (1908-1932) is presented below. Full data structure is a list of FCMs by generation.
 
 ``` r
 library(Matrix)
@@ -339,8 +340,6 @@ ttms[[5]][115:125,16000:16010]
     ## ABSURDITIES  . . . . . . .  . . . .
     ## ABSURDITY    . . . . . . .  . . . .
     ## ABSURDLY     . . . . . . .  . . . .
-
-------------------------------------------------------------------------
 
 ### Extract form frequencies
 
@@ -369,96 +368,13 @@ freqs %>%
   knitr::kable()
 ```
 
-| form          |    1808|    1833|    1858|    1883|    1908|    1933|    1958|    1983|
-|:--------------|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|
-| AFFORDED      |  102.86|   93.42|   71.48|   58.53|   40.92|   36.47|   21.87|   15.32|
-| SHARE         |  345.83|  310.26|  288.68|  335.94|  306.09|  334.47|  338.42|  353.54|
-| PRECIPITATION |    8.34|    7.52|    7.19|    8.03|   14.83|   10.16|   10.00|    4.33|
-| GROOMS        |    2.65|    1.91|    1.57|    1.00|    0.51|    0.37|    0.31|    0.29|
-| CLEARS        |    1.05|    1.33|    0.51|    0.88|    1.38|    0.86|    0.96|    0.68|
-
-------------------------------------------------------------------------
-
-### Lemmatizing feature matrix
-
-eg, 'possessed' would go away. Participle forms used in modification.
-
-``` r
-lemma_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt'), 
-                      header = FALSE, 
-                      skip = 10, sep = '\t')%>%
-  separate(V1, into = c('lemma', 'form'), sep = ' -> ') %>%
-  mutate(lemma = toupper(gsub('/.*$', '', lemma)),
-         form = toupper(form))%>%
-  separate_rows (form, sep = ',') %>%
-  filter(grepl("^[A-Z]+$", lemma)) %>%
-  group_by(form) %>% slice(1) 
-#some single forms are mapped to multiple lemmas, which is wrong.  n=136 
-```
-
-~ 25k -&gt; 16.5k via poor man's lemmatization
-
-``` r
-lex <- freqs %>% filter(generation == 1808) %>%
-  left_join(lemma_lexicon) %>%
-  mutate(lemma = ifelse(is.na(lemma), form, lemma)) %>%
-  select(form, lemma)
-```
-
-``` r
-lex %>% slice(5:12) %>% knitr::kable()
-```
-
-| form        | lemma       |
-|:------------|:------------|
-| ABAFT       | ABAFT       |
-| ABANDON     | ABANDON     |
-| ABANDONED   | ABANDON     |
-| ABANDONING  | ABANDON     |
-| ABANDONMENT | ABANDONMENT |
-| ABANDONS    | ABANDON     |
-| ABASHED     | ABASH       |
-| ABATE       | ABATE       |
-
-Lemmatize list of matrices.
-
-``` r
-library(Matrix.utils)
-
-lemmatize_matrix <- function (x) {
-  colnames(x) <- lex$lemma
-  rownames(x) <- lex$lemma
-  y <- t(aggregate.Matrix(x, colnames(x), fun = 'sum'))
-  aggregate.Matrix(y, colnames(x), fun = 'sum')
-}
-```
-
-``` r
-ttms_lemmed <- lapply(1:8, function (z)
-  ttms[[z]] %>% lemmatize_matrix()) 
-```
-
-``` r
-ttms_lemmed[[5]][1:10,1:10]
-```
-
-    ## 10 x 10 sparse Matrix of class "dgCMatrix"
-
-    ##    [[ suppressing 10 column names 'AA', 'AARON', 'AB' ... ]]
-
-    ##                                                        
-    ## AA          77   .    .   .   .     .    .   .    .   .
-    ## AARON        . 708    .   .   .     .    .   .    .   .
-    ## AB           .   . 2409   .   .     .    .   .    .   .
-    ## ABACK        .   .    . 703   .     .    .   .    .   .
-    ## ABAFT        .   .    .   . 227     .    .   .    .   .
-    ## ABANDON      .   .    .   .   . 16630    .   .    .   .
-    ## ABANDONMENT  .   .    .   .   .     . 3772   .    .   .
-    ## ABASH        .   .    .   .   .     .    . 118    .   .
-    ## ABATE        .   .    .   .   .     .    .   . 1092   .
-    ## ABATEMENT    .   .    .   .   .     .    .   .    . 729
-
-------------------------------------------------------------------------
+| form             |    1808|    1833|    1858|    1883|    1908|    1933|    1958|    1983|
+|:-----------------|-------:|-------:|-------:|-------:|-------:|-------:|-------:|-------:|
+| CIRCUMNAVIGATION |    0.44|    1.82|    0.93|    0.93|    0.42|    0.82|    0.72|    0.37|
+| CHILDBIRTH       |    0.31|    0.13|    0.44|    0.45|    1.18|    1.22|    0.93|    2.76|
+| WARWICK          |   12.66|    6.62|    6.91|    3.83|    2.80|    1.85|    2.46|    2.63|
+| FISH             |   53.26|   61.44|   65.69|   60.80|   44.41|   47.36|   40.52|   47.59|
+| SAKE             |  263.42|  417.80|  260.20|  280.17|  454.40|  221.99|  200.70|  238.91|
 
 ### Comparing some (relative) frequencies
 
@@ -474,7 +390,7 @@ freqs %>%
         legend.position = 'bottom')
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-35-1.png)
+![](README1_files/figure-markdown_github/unnamed-chunk-33-1.png)
 
 Compare to freq from one of the viewer packages.
 
@@ -486,7 +402,7 @@ ngramr::ngram(search, year_start = 1808) %>%
   theme(legend.position = 'bottom')
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-36-1.png)
+![](README1_files/figure-markdown_github/unnamed-chunk-34-1.png)
 
 ------------------------------------------------------------------------
 
