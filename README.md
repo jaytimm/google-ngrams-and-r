@@ -26,9 +26,7 @@ library(data.table)
 
 ### 1 Download, sample & aggregate
 
-> Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words.
-
-> **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
+> Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words. **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
 
 To start the sampling process, we build two simple functions. The **first function** downloads & unzips a single file of the corpus to a temporary folder.
 
@@ -62,13 +60,13 @@ unzipped_eg <- get_zip_csv(url)  #~11 million rows.
 unzipped_eg %>% sample_n(5) %>% knitr::kable()
 ```
 
-| V1                         |    V2|   V3|   V4|   V5|
-|:---------------------------|-----:|----:|----:|----:|
-| and had been received with |  1887|   12|   12|   12|
-| "instead of in money       |  1879|    2|    2|    2|
-| "for instance              |  1883|    4|    4|    4|
-| truth and duty . The       |  1883|    3|    3|    3|
-| "the succession of sounds  |  1969|    2|    2|    2|
+| V1                          |    V2|   V3|   V4|   V5|
+|:----------------------------|-----:|----:|----:|----:|
+| to be a failure !           |  1865|    3|    3|    3|
+| "the independence of Persia |  1920|    3|    3|    3|
+| examples could be quoted .  |  1938|    6|    6|    6|
+| 4 . Can you suggest         |  1937|    4|    4|    4|
+| a soluble salt with the     |  1848|    1|    1|    1|
 
 The **second function** performs a variety of tasks with the aim of sampling & aggregating the raw 5-gram files. Function parameters & details:
 
@@ -130,7 +128,9 @@ unzipped_eg %>%
 | MURDERED THE TURNKEY ON FRIDAY | \[1858,1883)  |     8|
 | YEAR OR TWO AND SEE            | \[1933,1958)  |     5|
 
-We then **apply functions** to all ~800 files/sub-corpora, and store locally. Depending on connection speed, this could take a while. A good processing rate would be 3/4 files per minute. Total size of processed files is ~6.7 Gb.
+<br>
+
+We then **apply functions** to all ~800 files/sub-corpora, and store the output locally. Depending on connection speed, this could take a while. A good processing rate would be 3/4 files per minute. Downoading/unzipping is the limiting part of the process. Total size of processed files is ~6.7 Gb.
 
 ``` r
 file_names <- c(1:799)
@@ -153,9 +153,9 @@ for (i in 1:length(file_names)) {
 
 ------------------------------------------------------------------------
 
-### Aggregate & sample again - and restructure
+### Restructure to bag-of-words
 
-At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurence matrices, the next step is to restructure the 5-gram data some, as well as (continue to) condense file sizes.
+At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurence matrices, the next step is to restructure the 5-gram data some.
 
 Per each file/sub-corpus generated above, here we:
 
@@ -164,7 +164,7 @@ Per each file/sub-corpus generated above, here we:
 -   flip 5-grams as character string to long format
 -   remove stop words
 
-Resulting data structure is a list of data frames, in which each sub-corpus is represented as ...
+> Per the table above, the 5-gram "MURDERED THE TURNKEY ON FRIDAY" occurred 8 times between 1858-1882 in the first file of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (8), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "THE" and "ON"). The ID serves to preserve the ngram as a context of usage (or mini-text).
 
 ``` r
 setwd(local_raw)
@@ -185,9 +185,7 @@ grams <- lapply(1:length(gfiles), function (y)
 names(grams) <- file_names  #Store locally.
 ```
 
-A sample portion of the **new sub-corpus data structure** is presented below.
-
-A total of 135.4k unique forms in 5-gram corpus. Size of 5-gram corpus = 1.3bil words.
+The **resulting data structure** is a list of data frames, with each data frame representing a sub-corpus as a bag-of-words (with frequencies aggregated by ngram constituents and generation). A sample portion of this structure is presented below.
 
 | ngram       | quarter       |  freq|   id|
 |:------------|:--------------|-----:|----:|
@@ -200,13 +198,11 @@ A total of 135.4k unique forms in 5-gram corpus. Size of 5-gram corpus = 1.3bil 
 
 ------------------------------------------------------------------------
 
-### Build corpus
+### Restructure sub-corpora
 
-At this point, we have ... in which each 5-gram can be construed as a small text or a co-occurrence context.
+The next step is to convert our list of randomly assembled sub-corpora into a list of generation-based sub-corpora. We also want to define a lexicon, and subsequently filter our corpus to only forms included in the lexicon. This last step serves to define the dimensions of our generation-based co-occurrence matrices.
 
-Our ultimate goal is to create co-occurrence matrices for each of our newly defined generations/quarters/time bins. To do this, we first need to convert our list of randomly assembled sub-corpora to a list of generation-based sub-corpora.
-
-First things first, then, we collapse our list of sub-corpora to a single corpus. Then we uniquely identify each 5-gram. ~3.2 Gb.
+First things first, we collapse our list of sub-corpora into a single corpus, and uniquely identify each 5-gram. ~3.2 Gb.
 
 ``` r
 grams <- grams %>% data.table::rbindlist(idcol = 'corp') 
@@ -218,7 +214,7 @@ grams[ , id := .GRP, by = key(grams)]
 grams[, corp := NULL]  #n = 120,920,432, 3.2Gb
 ```
 
-As our interest is utlimately in changes in word distributions historically, we next identify the 25k most frequent forms in our 5-gram corpus that occur in all eight generations.
+Here, we define our lexicon as the 25k most frequent forms in our 5-gram corpus that occur in all eight generations.
 
 ``` r
 top25k <- grams[, list(freq = sum(freq), gens = length(unique(quarter))), 
@@ -229,7 +225,7 @@ top25k <- grams[, list(freq = sum(freq), gens = length(unique(quarter))),
   data.table()
 ```
 
-We filter the full 5-gram corpus to the list of forms generated above, and split the corpus into a new list of data frames by generation. ~1.8 Gb.
+Then we filter the full 5-gram corpus to forms included in the lexicon, and split the corpus into a new list of data frames by generation. ~1.8 Gb.
 
 ``` r
 #Reduce corpus to top25k lexicon
@@ -267,26 +263,25 @@ ttms <- lapply(1:8, function (y)
 names(ttms) <- names(grams)
 ```
 
-A small portion of 25k x 25k FCM for **generation 5** (1908-1932) is presented below. Full data structure is a list of FCMs by generation.
+A small portion of 25k x 25k FCM for the years 1908-1932 is presented below. Full data structure is a list of FCMs by generation.
 
 ``` r
 library(Matrix)
-ttms[[5]][115:125,16000:16010]  
+ttms[[5]][1:10,1:20] 
 ```
 
-    ## 11 x 11 sparse Matrix of class "dgCMatrix"
-    ##                                    
-    ## ABSTINENCE   . . . . . . . 12 . . .
-    ## ABSTRACT     . . . . . . .  . . . .
-    ## ABSTRACTED   . . . . . . .  . . . .
-    ## ABSTRACTION  . . . . . . .  . . . .
-    ## ABSTRACTIONS . . . . . . .  . . . .
-    ## ABSTRACTS    . . . . . . .  1 . . .
-    ## ABSTRUSE     . . . . . . .  2 . . .
-    ## ABSURD       . . 3 . . . . 18 . . .
-    ## ABSURDITIES  . . . . . . .  . . . .
-    ## ABSURDITY    . . . . . . .  . . . .
-    ## ABSURDLY     . . . . . . .  . . . .
+    ## 10 x 20 sparse Matrix of class "dgCMatrix"
+    ##                                                                          
+    ## AA          77   .    .   .   .    .    .   .    .  . . . . . . . . . . .
+    ## AARON        . 708    .   .   .    .    .   .    .  . . . . . . . . . . .
+    ## AB           .   . 2409   .   .    .    .   .    .  . . . . . . . . . . .
+    ## ABACK        .   .    . 703   .    .    .   .    .  . . . . . . . . . . .
+    ## ABAFT        .   .    .   . 227    .    .   .    .  . . . . . . . . . . .
+    ## ABANDON      .   .    .   .   . 7732    .   .    .  . . . . . . . . . . .
+    ## ABANDONED    .   .    .   .   .    . 8244   .    .  . . . . . . . . . . .
+    ## ABANDONING   .   .    .   .   .    .    . 599    .  . . . . . . . . . . .
+    ## ABANDONMENT  .   .    .   .   .    .    .   . 3772  . . . . . . . . . . .
+    ## ABANDONS     .   .    .   .   .    .    .   .    . 55 . . . . . . . . . .
 
 ### Extract form frequencies
 
@@ -393,24 +388,35 @@ ttms_lemmed <- lapply(1:8, function (z)
 ```
 
 ``` r
-ttms_lemmed[[5]][1:10,1:10]
+ttms_lemmed[[5]][1:10,1:20]
 ```
 
-    ## 10 x 10 sparse Matrix of class "dgCMatrix"
+    ## 10 x 20 sparse Matrix of class "dgCMatrix"
 
-    ##    [[ suppressing 10 column names 'AA', 'AARON', 'AB' ... ]]
+    ##    [[ suppressing 20 column names 'AA', 'AARON', 'AB' ... ]]
 
-    ##                                                        
-    ## AA          77   .    .   .   .     .    .   .    .   .
-    ## AARON        . 708    .   .   .     .    .   .    .   .
-    ## AB           .   . 2409   .   .     .    .   .    .   .
-    ## ABACK        .   .    . 703   .     .    .   .    .   .
-    ## ABAFT        .   .    .   . 227     .    .   .    .   .
-    ## ABANDON      .   .    .   .   . 16630    .   .    .   .
-    ## ABANDONMENT  .   .    .   .   .     . 3772   .    .   .
-    ## ABASH        .   .    .   .   .     .    . 118    .   .
-    ## ABATE        .   .    .   .   .     .    .   . 1092   .
-    ## ABATEMENT    .   .    .   .   .     .    .   .    . 729
+    ##                                                                           
+    ## AA          77   .    .   .   .     .    .   .    .   . . . . . . . .  . .
+    ## AARON        . 708    .   .   .     .    .   .    .   . . . . . . . .  . .
+    ## AB           .   . 2409   .   .     .    .   .    .   . . . . . . . . 12 .
+    ## ABACK        .   .    . 703   .     .    .   .    .   . . . . . . . .  . .
+    ## ABAFT        .   .    .   . 227     .    .   .    .   . . . . . . . .  . .
+    ## ABANDON      .   .    .   .   . 16630    .   .    .   . . . . . . . .  . .
+    ## ABANDONMENT  .   .    .   .   .     . 3772   .    .   . . . . . . . .  . .
+    ## ABASH        .   .    .   .   .     .    . 118    .   . . . . . . . .  . .
+    ## ABATE        .   .    .   .   .     .    .   . 1092   . . . . . . . .  . .
+    ## ABATEMENT    .   .    .   .   .     .    .   .    . 729 . . . . . . .  . .
+    ##              
+    ## AA          .
+    ## AARON       .
+    ## AB          .
+    ## ABACK       .
+    ## ABAFT       .
+    ## ABANDON     .
+    ## ABANDONMENT .
+    ## ABASH       .
+    ## ABATE       .
+    ## ABATEMENT   .
 
 ------------------------------------------------------------------------
 
