@@ -1,7 +1,7 @@
 Google n-gram data & R: some methods
 ------------------------------------
 
-An R-based guide to accessing & sampling Google n-gram data, with a focus on/aim of building some text structures for investigating lexical semantic change historically.
+An R-based guide to accessing/sampling Google n-gram data & building historical term-feature matrices for investigating lexical semantic change historically.
 
 -   [1 Download-Sample-Aggregate](#1-Download-Sample-Aggregate)
 -   [2 Restructuring corpus](#2-Restructuring-corpus)
@@ -13,17 +13,9 @@ An R-based guide to accessing & sampling Google n-gram data, with a focus on/aim
 -   [8 Exploring synonymny historically](#8-Exploring-synonymny-historically)
 -   [9 Summary](#9-Summary)
 
-Smart approach, versus less smart approach. Sample ngram data / reduce mass ... to a size that is manageable locally.
+This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smarter aproach to working with n-gram data in its entriety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
 
-A developing resource. ... if we wanted to engage with ngram data in earnest, we would build SQL database, etc. Here, we just want to:
-
--   steal some historical text data to demonstrate a set of methods,
--   take a peak into some changes in word distributions historically, and
-
-Endgame
--------
-
-Finding historical synonyms (-ish). The table below summarizes nearest neighbors for the word *grasp* over the last 200 years (by quearter century).
+**Endgame:** Finding historical synonyms (-ish). The table below summarizes nearest neighbors for the word *GRASP* over the last 200 years (by quarter century).
 
 | quarter       | syn                                                                                                                                                                           |
 |:--------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -36,16 +28,16 @@ Finding historical synonyms (-ish). The table below summarizes nearest neighbors
 | \[1958,1983)  | comprehend (0.67), understand (0.64), decode (0.51), appreciate (0.51), cope (0.5), verbalize (0.48), lightweight (0.46), discern (0.46), foresee (0.46), westerner (0.45)    |
 | \[1983,2008\] | understand (0.6), comprehend (0.58), grip (0.55), enshroud (0.49), trainee (0.49), parse (0.49), reuse (0.49), disassociate (0.49), perceive (0.48), cope (0.48)              |
 
-``` r
-library(tidyverse)
-library(data.table)
-```
-
 ------------------------------------------------------------------------
 
 ### 1 Download-Sample-Aggregate
 
 Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words. **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
+
+``` r
+library(tidyverse)
+library(data.table)
+```
 
 To start the sampling process, we build two simple functions. The **first function** downloads & unzips a single file of the corpus to a temporary folder.
 
@@ -328,6 +320,20 @@ elp_lexicon_lem <- lexvarsdatr::lvdr_behav_data %>%
   left_join(lemma_lexicon)%>%
   mutate(lemma = ifelse(is.na(lemma), form, lemma))
 ```
+
+Our lexicon, then, contains ~39k forms. A sample of the lexicon is presented below:
+
+| form        | pos   | lemma       |
+|:------------|:------|:------------|
+| ABANDON     | VB|NN | ABANDON     |
+| ABANDONED   | VB|JJ | ABANDON     |
+| ABANDONING  | VB    | ABANDON     |
+| ABANDONMENT | NN    | ABANDONMENT |
+| ABASE       | VB    | ABASE       |
+| ABASEMENT   | NN    | ABASEMENT   |
+| ABASH       | VB    | ABASH       |
+| ABATE       | VB    | ABATE       |
+| ABATED      | VB    | ABATE       |
 
 ------------------------------------------------------------------------
 
