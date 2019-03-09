@@ -9,8 +9,8 @@ An R-based guide to accessing & sampling Google n-gram data, with a focus on/aim
 -   [4 Building a lemma-ish lexicon](#4-Building-a-lemma-ish-lexicon)
 -   [5 Lemmatizing terms and features](#5-Lemmatizing-words-and-features)
 -   [6 Filtering features based on frequency](#6-Filtering-features-based-on-frequency)
--   [7 PPMI and SVD](#7-PPMI-and-SVD))
--   [8 Exploring historical synonymny](#8-Exploring-historical-synonymns)
+-   [7 PPMI and SVD](#7-PPMI-and-SVD)
+-   [8 Exploring synonymny historically](#8-Exploring-synonymny-historically)
 -   [9 Summary](#9-Summary)
 
 Smart approach, versus less smart approach. Sample ngram data / reduce mass ... to a size that is manageable locally.
@@ -487,7 +487,7 @@ tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 200)
 
 ------------------------------------------------------------------------
 
-### 8 Exploring historical synonymny
+### 8 Exploring synonymny historically
 
 Simple matrix.
 
@@ -506,56 +506,90 @@ names(tfms_mats) <- names(tfms)
 `neighbors` function from the `LSAfun` package.
 
 ``` r
-lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 10)
+lapply(tfms_mats, LSAfun::neighbors, x = toupper('awful'), n = 10)
 ```
 
     ## $`[1808,1833)`
-    ## COMMUNICATE      INFORM    TRANSMIT      COMPLY      CONVEY     RECEIVE 
-    ##   1.0000000   0.5116124   0.4591025   0.4128344   0.3737732   0.3539243 
-    ##    DIOCESAN    SUBSERVE   ADVERTISE      REPORT 
-    ##   0.3442259   0.3436778   0.3281411   0.3260907 
+    ##     AWFUL    SQUINT STILLNESS    SOLEMN   SILENCE   HANCOCK  SOLITUDE 
+    ## 1.0000000 0.6138022 0.4913693 0.4875673 0.4516866 0.4511762 0.4432864 
+    ## SOLEMNITY  GRANDEUR REVERENCE 
+    ## 0.4326415 0.4029595 0.3956272 
     ## 
     ## $`[1833,1858)`
-    ##  COMMUNICATE       INFORM       IMPART       CONVEY     TRANSMIT 
-    ##    1.0000000    0.5226340    0.4365555    0.4283545    0.4180967 
-    ##      RECEIVE INTELLIGENCE          RID TRANSMISSION     ANNOUNCE 
-    ##    0.3836830    0.3368491    0.3352775    0.3329867    0.3312306 
+    ##          AWFUL  UNIMPEACHABLE        SUBLIME    UNFAILINGLY ACCOUNTABILITY 
+    ##      1.0000000      0.8234118      0.5248169      0.4980198      0.4648382 
+    ##     MYSTERIOUS        SILENCE        MYSTERY          APPAL       TERRIBLE 
+    ##      0.4538010      0.4512602      0.4296436      0.4204683      0.4047735 
     ## 
     ## $`[1858,1883)`
-    ## COMMUNICATE      INFORM     RESPOND    TRANSMIT      IMPART      CONVEY 
-    ##   1.0000000   0.4653688   0.4467924   0.4359360   0.4248891   0.4115102 
-    ##       AVAIL    DISCOVER     RECEIVE   INTRODUCE 
-    ##   0.4026853   0.3608841   0.3606188   0.3585911 
+    ##      AWFUL  SOLEMNITY   DREADFUL    FEARFUL   TERRIBLE MYSTERIOUS 
+    ##  1.0000000  0.5721841  0.5622825  0.5369559  0.4886308  0.4587954 
+    ##       GONG    PAINFUL    OVERSEE   GRANDEUR 
+    ##  0.4442043  0.4302043  0.4194969  0.4172082 
     ## 
     ## $`[1883,1908)`
-    ## COMMUNICATE      INFORM     LANDING      IMPART REASSURANCE    TRANSMIT 
-    ##   1.0000000   0.5407639   0.5189833   0.5013072   0.4451960   0.4139865 
-    ##     CONSULT     RECEIVE      REJOIN  EXCELLENCY 
-    ##   0.3543093   0.3492977   0.3491751   0.3403443 
+    ##      AWFUL   GRANDEUR   TERRIBLE       WARN IMPRESSIVE      BRINK 
+    ##  1.0000000  0.5275426  0.4692250  0.4446320  0.4205578  0.4133154 
+    ## MYSTERIOUS      STERN    FEARFUL  SOLEMNITY 
+    ##  0.4092081  0.4090976  0.4033459  0.3977852 
     ## 
     ## $`[1908,1933)`
-    ## COMMUNICATE      INFORM     JAMESON     REQUEST    TRANSMIT     ADDRESS 
-    ##   1.0000000   0.5323924   0.4622641   0.4394124   0.3924223   0.3879937 
-    ##     MESSAGE        SEND      ACCEDE      NOTIFY 
-    ##   0.3702342   0.3697170   0.3654982   0.3569189 
+    ##     AWFUL  GRANDEUR SOLEMNITY    SOLEMN   MYSTERY       SAD   FEARFUL 
+    ## 1.0000000 0.4414021 0.4332082 0.4303716 0.4007711 0.3987826 0.3852825 
+    ##  DREADFUL  TERRIBLE   WEIGHTY 
+    ## 0.3751914 0.3577784 0.3552299 
     ## 
     ## $`[1933,1958)`
-    ## COMMUNICATE      CONVEY      INFORM     RESPOND      IMPART   VERBALIZE 
-    ##   1.0000000   0.4966556   0.4408290   0.4351647   0.3866844   0.3791684 
-    ##      DIVERT    TRANSMIT    PERCEIVE        SEND 
-    ##   0.3597616   0.3515893   0.3514909   0.3437842 
+    ##       AWFUL CATASTROPHE    GRANDEUR  IMPRESSIVE      SOLEMN       APPAL 
+    ##   1.0000000   0.4397561   0.4361084   0.4305086   0.4118108   0.4015999 
+    ##  MYSTERIOUS     SUBLIME    CALAMITY   SPECTACLE 
+    ##   0.3950894   0.3888246   0.3864190   0.3844930 
     ## 
     ## $`[1958,1983)`
-    ## COMMUNICATE   VERBALIZE      DECODE      INFORM     SOMEDAY    DISCOVER 
-    ##   1.0000000   0.5544150   0.5252992   0.5052551   0.4926164   0.4898755 
-    ##      CONVEY    IDENTIFY      FERRET    DISLODGE 
-    ##   0.4722842   0.4702213   0.4698178   0.4577539 
+    ##      AWFUL   TERRIBLE MYSTERIOUS   FASTENER       DIRE    SUBLIME 
+    ##  1.0000000  0.4276057  0.4121773  0.3761976  0.3679445  0.3644093 
+    ##   CALAMITY    SILENCE      CRUEL    SECRECY 
+    ##  0.3635237  0.3501145  0.3428076  0.3410534 
     ## 
     ## $`[1983,2008]`
-    ## COMMUNICATE    ENSHROUD     TRAINEE       PARSE       REUSE      DECODE 
-    ##   1.0000000   0.6343909   0.6343909   0.6343909   0.6343909   0.6143108 
-    ##    OUTFLANK      OUTWIT   VISUALIZE   REPLICATE 
-    ##   0.5601198   0.5454435   0.5409273   0.5308103
+    ##     AWFUL CATACLYSM   CARNAGE  DREADFUL SOLEMNITY      POMP  GRANDEUR 
+    ## 1.0000000 0.8497796 0.5876992 0.5775361 0.5227230 0.5114711 0.5091410 
+    ##  TERRIBLE BURLESQUE  CALAMITY 
+    ## 0.4900803 0.4864659 0.4747446
+
+Clean output.
+
+``` r
+strip_syns <- function (x) {
+  lapply(1:length(x), function(y)  
+    x[[y]] %>%
+    as.tibble %>% 
+    rownames_to_column() %>%
+    mutate(syn = paste0(tolower(rowname), ' (', round(value,2),')'),
+         quarter = names(x[y]))%>%
+    select(quarter, syn) %>%
+    slice(-1) %>%
+    group_by(quarter) %>%
+    summarize(syn = paste0(syn, collapse = ', '))) %>%
+    bind_rows() }
+```
+
+``` r
+lapply(tfms_mats, LSAfun::neighbors, x = toupper('grasp'), n = 10) %>%
+  strip_syns() %>%
+  knitr::kable()
+```
+
+| quarter       | syn                                                                                                                                                          |
+|:--------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| \[1808,1833)  | legionary (0.66), snatch (0.44), wield (0.44), hilt (0.44), sword (0.43), rigidly (0.43), herculean (0.43), hand (0.43), unsheathe (0.42)                    |
+| \[1833,1858)  | omnivorous (0.73), nerveless (0.55), statesmanlike (0.54), wrench (0.45), hand (0.44), weapon (0.44), snatch (0.43), legionary (0.4), sceptre (0.39)         |
+| \[1858,1883)  | clutch (0.52), hand (0.51), snatch (0.5), unclasp (0.5), tighten (0.49), holster (0.47), nerveless (0.47), soothingly (0.44), shifty (0.44)                  |
+| \[1883,1908)  | penknife (0.58), throttle (0.55), tentacle (0.51), legionary (0.5), nerveless (0.49), wrest (0.48), snatch (0.47), unclasp (0.47), hand (0.46)               |
+| \[1908,1933)  | understand (0.59), comprehend (0.56), realize (0.55), perceive (0.5), appreciate (0.49), visualize (0.47), repaint (0.45), masterful (0.45), coworker (0.44) |
+| \[1933,1958)  | comprehend (0.6), understand (0.6), realize (0.55), westerner (0.54), appreciate (0.52), perceive (0.52), recognize (0.5), extricate (0.48), discern (0.48)  |
+| \[1958,1983)  | comprehend (0.67), understand (0.64), decode (0.51), appreciate (0.51), cope (0.5), verbalize (0.48), lightweight (0.46), discern (0.46), foresee (0.46)     |
+| \[1983,2008\] | understand (0.6), comprehend (0.58), grip (0.55), enshroud (0.49), trainee (0.49), parse (0.49), reuse (0.49), disassociate (0.49), perceive (0.48)          |
 
 ------------------------------------------------------------------------
 
