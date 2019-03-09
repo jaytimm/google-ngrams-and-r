@@ -20,6 +20,22 @@ A developing resource. ... if we wanted to engage with ngram data in earnest, we
 -   steal some historical text data to demonstrate a set of methods,
 -   take a peak into some changes in word distributions historically, and
 
+Endgame
+-------
+
+Finding historical synonyms (-ish). The table below summarizes nearest neighbors for the word *grasp* over the last 200 years (by quearter century).
+
+| quarter       | syn                                                                                                                                                                           |
+|:--------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| \[1808,1833)  | legionary (0.66), snatch (0.44), wield (0.44), hilt (0.44), sword (0.43), rigidly (0.43), herculean (0.43), hand (0.43), unsheathe (0.42), spoiler (0.41)                     |
+| \[1833,1858)  | omnivorous (0.73), nerveless (0.55), statesmanlike (0.54), wrench (0.45), hand (0.44), weapon (0.44), snatch (0.43), legionary (0.4), sceptre (0.39), wrest (0.39)            |
+| \[1858,1883)  | clutch (0.52), hand (0.51), snatch (0.5), unclasp (0.5), tighten (0.49), holster (0.47), nerveless (0.47), soothingly (0.44), shifty (0.44), hilt (0.44)                      |
+| \[1883,1908)  | penknife (0.58), throttle (0.55), tentacle (0.51), legionary (0.5), nerveless (0.49), wrest (0.48), snatch (0.47), unclasp (0.47), hand (0.46), grip (0.45)                   |
+| \[1908,1933)  | understand (0.59), comprehend (0.56), realize (0.55), perceive (0.5), appreciate (0.49), visualize (0.47), repaint (0.45), masterful (0.45), coworker (0.44), rower (0.44)    |
+| \[1933,1958)  | comprehend (0.6), understand (0.6), realize (0.55), westerner (0.54), appreciate (0.52), perceive (0.52), recognize (0.5), extricate (0.48), discern (0.48), verbalize (0.48) |
+| \[1958,1983)  | comprehend (0.67), understand (0.64), decode (0.51), appreciate (0.51), cope (0.5), verbalize (0.48), lightweight (0.46), discern (0.46), foresee (0.46), westerner (0.45)    |
+| \[1983,2008\] | understand (0.6), comprehend (0.58), grip (0.55), enshroud (0.49), trainee (0.49), parse (0.49), reuse (0.49), disassociate (0.49), perceive (0.48), cope (0.48)              |
+
 ``` r
 library(tidyverse)
 library(data.table)
@@ -502,22 +518,6 @@ for (i in 1:8) {
 
 names(tfms_mats) <- names(tfms)
 ```
-
-``` r
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
-tfms_mats <- readRDS('tfms_mats.rds')
-```
-
-| quarter       | syn                                                                                                                                                                           |
-|:--------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| \[1808,1833)  | legionary (0.66), snatch (0.44), wield (0.44), hilt (0.44), sword (0.43), rigidly (0.43), herculean (0.43), hand (0.43), unsheathe (0.42), spoiler (0.41)                     |
-| \[1833,1858)  | omnivorous (0.73), nerveless (0.55), statesmanlike (0.54), wrench (0.45), hand (0.44), weapon (0.44), snatch (0.43), legionary (0.4), sceptre (0.39), wrest (0.39)            |
-| \[1858,1883)  | clutch (0.52), hand (0.51), snatch (0.5), unclasp (0.5), tighten (0.49), holster (0.47), nerveless (0.47), soothingly (0.44), shifty (0.44), hilt (0.44)                      |
-| \[1883,1908)  | penknife (0.58), throttle (0.55), tentacle (0.51), legionary (0.5), nerveless (0.49), wrest (0.48), snatch (0.47), unclasp (0.47), hand (0.46), grip (0.45)                   |
-| \[1908,1933)  | understand (0.59), comprehend (0.56), realize (0.55), perceive (0.5), appreciate (0.49), visualize (0.47), repaint (0.45), masterful (0.45), coworker (0.44), rower (0.44)    |
-| \[1933,1958)  | comprehend (0.6), understand (0.6), realize (0.55), westerner (0.54), appreciate (0.52), perceive (0.52), recognize (0.5), extricate (0.48), discern (0.48), verbalize (0.48) |
-| \[1958,1983)  | comprehend (0.67), understand (0.64), decode (0.51), appreciate (0.51), cope (0.5), verbalize (0.48), lightweight (0.46), discern (0.46), foresee (0.46), westerner (0.45)    |
-| \[1983,2008\] | understand (0.6), comprehend (0.58), grip (0.55), enshroud (0.49), trainee (0.49), parse (0.49), reuse (0.49), disassociate (0.49), perceive (0.48), cope (0.48)              |
 
 `neighbors` function from the `LSAfun` package.
 
