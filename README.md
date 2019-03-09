@@ -503,6 +503,22 @@ for (i in 1:8) {
 names(tfms_mats) <- names(tfms)
 ```
 
+``` r
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+tfms_mats <- readRDS('tfms_mats.rds')
+```
+
+| quarter       | syn                                                                                                                                                                           |
+|:--------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| \[1808,1833)  | legionary (0.66), snatch (0.44), wield (0.44), hilt (0.44), sword (0.43), rigidly (0.43), herculean (0.43), hand (0.43), unsheathe (0.42), spoiler (0.41)                     |
+| \[1833,1858)  | omnivorous (0.73), nerveless (0.55), statesmanlike (0.54), wrench (0.45), hand (0.44), weapon (0.44), snatch (0.43), legionary (0.4), sceptre (0.39), wrest (0.39)            |
+| \[1858,1883)  | clutch (0.52), hand (0.51), snatch (0.5), unclasp (0.5), tighten (0.49), holster (0.47), nerveless (0.47), soothingly (0.44), shifty (0.44), hilt (0.44)                      |
+| \[1883,1908)  | penknife (0.58), throttle (0.55), tentacle (0.51), legionary (0.5), nerveless (0.49), wrest (0.48), snatch (0.47), unclasp (0.47), hand (0.46), grip (0.45)                   |
+| \[1908,1933)  | understand (0.59), comprehend (0.56), realize (0.55), perceive (0.5), appreciate (0.49), visualize (0.47), repaint (0.45), masterful (0.45), coworker (0.44), rower (0.44)    |
+| \[1933,1958)  | comprehend (0.6), understand (0.6), realize (0.55), westerner (0.54), appreciate (0.52), perceive (0.52), recognize (0.5), extricate (0.48), discern (0.48), verbalize (0.48) |
+| \[1958,1983)  | comprehend (0.67), understand (0.64), decode (0.51), appreciate (0.51), cope (0.5), verbalize (0.48), lightweight (0.46), discern (0.46), foresee (0.46), westerner (0.45)    |
+| \[1983,2008\] | understand (0.6), comprehend (0.58), grip (0.55), enshroud (0.49), trainee (0.49), parse (0.49), reuse (0.49), disassociate (0.49), perceive (0.48), cope (0.48)              |
+
 `neighbors` function from the `LSAfun` package.
 
 ``` r
@@ -575,21 +591,21 @@ strip_syns <- function (x) {
 ```
 
 ``` r
-lapply(tfms_mats, LSAfun::neighbors, x = toupper('grasp'), n = 10) %>%
+lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 10) %>%
   strip_syns() %>%
   knitr::kable()
 ```
 
-| quarter       | syn                                                                                                                                                          |
-|:--------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| \[1808,1833)  | legionary (0.66), snatch (0.44), wield (0.44), hilt (0.44), sword (0.43), rigidly (0.43), herculean (0.43), hand (0.43), unsheathe (0.42)                    |
-| \[1833,1858)  | omnivorous (0.73), nerveless (0.55), statesmanlike (0.54), wrench (0.45), hand (0.44), weapon (0.44), snatch (0.43), legionary (0.4), sceptre (0.39)         |
-| \[1858,1883)  | clutch (0.52), hand (0.51), snatch (0.5), unclasp (0.5), tighten (0.49), holster (0.47), nerveless (0.47), soothingly (0.44), shifty (0.44)                  |
-| \[1883,1908)  | penknife (0.58), throttle (0.55), tentacle (0.51), legionary (0.5), nerveless (0.49), wrest (0.48), snatch (0.47), unclasp (0.47), hand (0.46)               |
-| \[1908,1933)  | understand (0.59), comprehend (0.56), realize (0.55), perceive (0.5), appreciate (0.49), visualize (0.47), repaint (0.45), masterful (0.45), coworker (0.44) |
-| \[1933,1958)  | comprehend (0.6), understand (0.6), realize (0.55), westerner (0.54), appreciate (0.52), perceive (0.52), recognize (0.5), extricate (0.48), discern (0.48)  |
-| \[1958,1983)  | comprehend (0.67), understand (0.64), decode (0.51), appreciate (0.51), cope (0.5), verbalize (0.48), lightweight (0.46), discern (0.46), foresee (0.46)     |
-| \[1983,2008\] | understand (0.6), comprehend (0.58), grip (0.55), enshroud (0.49), trainee (0.49), parse (0.49), reuse (0.49), disassociate (0.49), perceive (0.48)          |
+| quarter       | syn                                                                                                                                                 |
+|:--------------|:----------------------------------------------------------------------------------------------------------------------------------------------------|
+| \[1808,1833)  | inform (0.51), transmit (0.46), comply (0.41), convey (0.37), receive (0.35), diocesan (0.34), subserve (0.34), advertise (0.33), report (0.33)     |
+| \[1833,1858)  | inform (0.52), impart (0.44), convey (0.43), transmit (0.42), receive (0.38), intelligence (0.34), rid (0.34), transmission (0.33), announce (0.33) |
+| \[1858,1883)  | inform (0.47), respond (0.45), transmit (0.44), impart (0.42), convey (0.41), avail (0.4), discover (0.36), receive (0.36), introduce (0.36)        |
+| \[1883,1908)  | inform (0.54), landing (0.52), impart (0.5), reassurance (0.45), transmit (0.41), consult (0.35), receive (0.35), rejoin (0.35), excellency (0.34)  |
+| \[1908,1933)  | inform (0.53), jameson (0.46), request (0.44), transmit (0.39), address (0.39), message (0.37), send (0.37), accede (0.37), notify (0.36)           |
+| \[1933,1958)  | convey (0.5), inform (0.44), respond (0.44), impart (0.39), verbalize (0.38), divert (0.36), transmit (0.35), perceive (0.35), send (0.34)          |
+| \[1958,1983)  | verbalize (0.55), decode (0.53), inform (0.51), someday (0.49), discover (0.49), convey (0.47), identify (0.47), ferret (0.47), dislodge (0.46)     |
+| \[1983,2008\] | enshroud (0.63), trainee (0.63), parse (0.63), reuse (0.63), decode (0.61), outflank (0.56), outwit (0.55), visualize (0.54), replicate (0.53)      |
 
 ------------------------------------------------------------------------
 
