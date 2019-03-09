@@ -3,12 +3,15 @@ Google n-gram data & R: some methods
 
 An R-based guide to accessing & sampling Google n-gram data, with a focus on/aim of building some text structures for investigating lexical semantic change historically.
 
--   [1 Overview of n-gram corpus](#1-Overview-of-n-gram-corpus)
--   [2 Download-sample-aggregate](#2-Download-sample-aggregate)
--   [3 Sample-aggregate-restructure](#Sample-aggregate-restructure)
--   [4 Building historical corpora](#4-Building-historical-corpora)
--   [5 Building historical feature matrices](#5-Building-historical-feature-matrices)
--   [5 Form frequency from matrices](#4-Building-historical-corpora))
+-   [1 Download-Sample-Aggregate](#1-Download-Sample-Aggregate)
+-   [2 Restructuring corpus](#2-Restructuring-corpus)
+-   [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
+-   [4 Building a lemma-ish lexicon](#4-Building-a-lemma-ish-lexicon)
+-   [5 Lemmatizing terms and features](#5-Lemmatizing-words-and-features)
+-   [6 Filtering features based on frequency](#6-Filtering-features-based-on-frequency))
+-   [7 PPMI and SVD](#7-PPMI-and-SVD))
+-   [8 Exploring historical synonymns](#8-Exploring-historical-synonymns))
+-   [9 Summary](#9-Summary))
 
 Smart approach, versus less smart approach. Sample ngram data / reduce mass ... to a size that is manageable locally.
 
@@ -24,7 +27,7 @@ library(data.table)
 
 ------------------------------------------------------------------------
 
-### 1 Download, sample & aggregate
+### 1 Download-Sample-Aggregate
 
 Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words. **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
 
@@ -59,13 +62,6 @@ url <- 'http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gra
 unzipped_eg <- get_zip_csv(url)  #~11 million rows.
 unzipped_eg %>% sample_n(5) %>% knitr::kable()
 ```
-
-    ## Warning in data.table::fread("C:\\Users\\jason\\Google Drive\
-    ## \GitHub\\git_projects\\google_ngrams_and_R\\data\\egs\\googlebooks-
-    ## eng-1M-5gram-20090715-1.csv"): Found and resolved improper quoting out-of-
-    ## sample. First healed line 151: <<"! "" "" Hey 1811 1 1 1>>. If the fields
-    ## are not quoted (e.g. field separator does not appear within any field), try
-    ## quote="" to avoid this warning.
 
 | V1                               |    V2|   V3|   V4|   V5|
 |:---------------------------------|-----:|----:|----:|----:|
@@ -160,7 +156,7 @@ for (i in 1:length(file_names)) {
 
 ------------------------------------------------------------------------
 
-### Restructuring corpus
+### 2 Restructuring corpus
 
 At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurence matrices, the next step is to restructure the 5-gram data some.
 
@@ -224,7 +220,7 @@ grams <- lapply(grams, select, -quarter) #1.8 Gb
 
 ------------------------------------------------------------------------
 
-### Building historical term-feature matrices
+### 3 Building historical term-feature matrices
 
 At this point, we are finished with the time- & memory-consumptive portion of the workflow. Next, we want to transform each of our sub-corpora into a term-feature matrix (TFM).
 
@@ -268,7 +264,7 @@ tfms[[5]][1:10,1:15]
 
 ------------------------------------------------------------------------
 
-### Building a lemma-based lexicon
+### 4 Building a lemma-ish lexicon
 
 Some different approaches to condensing our matrices.
 
@@ -302,11 +298,6 @@ lemma_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/le
   separate_rows (form, sep = ',') %>%
   filter(grepl("^[A-Z]+$", lemma)) %>%
   group_by(form) %>% slice(1) 
-```
-
-    ## Warning: package 'bindrcpp' was built under R version 3.4.4
-
-``` r
 #some single forms are mapped to multiple lemmas -- n=136 
 ```
 
@@ -322,11 +313,9 @@ elp_lexicon_lem <- lexvarsdatr::lvdr_behav_data %>%
   mutate(lemma = ifelse(is.na(lemma), form, lemma))
 ```
 
-    ## Joining, by = "form"
-
 ------------------------------------------------------------------------
 
-### Lemmatizing terms & features
+### 5 Lemmatizing terms and features
 
 Feature/lexicon/FCM compression.
 
@@ -385,7 +374,7 @@ tfms_lemmed[[5]][1:10,1:20]
 
 ------------------------------------------------------------------------
 
-### Filtering features based on frequency
+### 6 Filtering features based on frequency
 
 Reduce. But also a homogenization process.
 
@@ -448,7 +437,7 @@ tfms_filtered <- lapply(1:8, function (x)
 
 ------------------------------------------------------------------------
 
-### PPMI & SVD
+### 7 PPMI and SVD
 
 Whether or not some or all of the compression steps presented above, ...
 
@@ -498,7 +487,7 @@ tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 200)
 
 ------------------------------------------------------------------------
 
-### Find synonymns (& antonymns)
+### 8 Exploring historical synonymns
 
 Simple matrix.
 
@@ -570,4 +559,4 @@ lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 10)
 
 ------------------------------------------------------------------------
 
-### Summary
+### 9 Summary
