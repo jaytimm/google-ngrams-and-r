@@ -15,6 +15,8 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 
 This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smarter aproach to working with n-gram data in its entriety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
 
+Google n-gram data are a bit weird as a text structure. As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.
+
 **Endgame:** Finding historical synonyms (-ish). The table below summarizes nearest neighbors for the word *GRASP* over the last 200 years (by quarter century).
 
 | quarter       | syn                                                                                                                                                                           |
@@ -197,7 +199,7 @@ grams <- lapply(1:length(gfiles), function (y)
 names(grams) <- file_names  #Store locally.
 ```
 
-The **resulting data structure** is a list of data frames, with each data frame representing a sub-corpus as a bag-of-words (with frequencies aggregated by ngram constituents and generation). A sample portion of this structure is presented below.
+The **resulting data structure** is a list of data frames, with each data frame representing a sub-corpus as a bag-of-words (with frequencies aggregated by ngram constituents and quarter-century). A sample portion of this structure is presented below.
 
 | ngram       | quarter       |  freq|   id|
 |:------------|:--------------|-----:|----:|
@@ -208,22 +210,21 @@ The **resulting data structure** is a list of data frames, with each data frame 
 | OPPOSED     | \[1883,1908)  |     2|    2|
 | NEW         | \[1983,2008\] |     1|    3|
 
-The next step is to convert our list of randomly assembled sub-corpora into a list of generation-based sub-corpora. So, we first collapse our list of sub-corpora into a single corpus, and uniquely identify each 5-gram. ~3.2 Gb.
+The next step is to convert our list of randomly assembled sub-corpora into a list of generation-based sub-corpora. So, we first collapse our list of sub-corpora into a single corpus, and uniquely identify each 5-gram.
 
 ``` r
 grams <- grams %>% data.table::rbindlist(idcol = 'corp') 
 setkey(grams, corp, id)
 grams[ , id := .GRP, by = key(grams)]
-grams[, corp := NULL]  #n = 120,920,432, 3.2Gb
+grams[, corp := NULL]  #n = 120,920,432
 ```
 
-Then we re-split the corpus into eight sub-corpora, one for each quarter.
+Then we re-split the corpus into eight sub-corpora, one for each quarter-century.
 
 ``` r
-#Split corpus by generation
 setorder(grams, quarter, id)
 grams <- split(grams, f = grams$quarter) 
-grams <- lapply(grams, select, -quarter) #1.8 Gb
+grams <- lapply(grams, select, -quarter) 
 ```
 
 ------------------------------------------------------------------------
@@ -311,22 +312,22 @@ lemma_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/le
 
 ``` r
 elp_lexicon_lem <- lexvarsdatr::lvdr_behav_data %>%  
-  #Some freely available lexical resources. As post.
   filter(!is.na(POS)) %>%
   rename(form = Word, pos = POS) %>%
   mutate(form = toupper(form)) %>%
   select(form, pos) %>%
   filter(!grepl("-|'", form)) %>%
   left_join(lemma_lexicon)%>%
-  mutate(lemma = ifelse(is.na(lemma), form, lemma))
+  mutate(lemma = ifelse(is.na(lemma), form, lemma),
+         pos = gsub('\\|','-', pos))
 ```
 
 Our lexicon, then, contains ~39k forms. A sample of the lexicon is presented below:
 
 | form        | pos   | lemma       |
 |:------------|:------|:------------|
-| ABANDON     | VB|NN | ABANDON     |
-| ABANDONED   | VB|JJ | ABANDON     |
+| ABANDON     | VB-NN | ABANDON     |
+| ABANDONED   | VB-JJ | ABANDON     |
 | ABANDONING  | VB    | ABANDON     |
 | ABANDONMENT | NN    | ABANDONMENT |
 | ABASE       | VB    | ABASE       |
@@ -616,3 +617,7 @@ lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 10) %>%
 ------------------------------------------------------------------------
 
 ### 9 Summary
+
+While academic linguists are often critical of Google n-gram data, it is still an incredible cultural resource.
+
+Many of the methodological decisions made here can certainly be tweaked to improve results.
