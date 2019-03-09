@@ -8,10 +8,10 @@ An R-based guide to accessing & sampling Google n-gram data, with a focus on/aim
 -   [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
 -   [4 Building a lemma-ish lexicon](#4-Building-a-lemma-ish-lexicon)
 -   [5 Lemmatizing terms and features](#5-Lemmatizing-words-and-features)
--   [6 Filtering features based on frequency](#6-Filtering-features-based-on-frequency))
+-   [6 Filtering features based on frequency](#6-Filtering-features-based-on-frequency)
 -   [7 PPMI and SVD](#7-PPMI-and-SVD))
--   [8 Exploring historical synonymns](#8-Exploring-historical-synonymns))
--   [9 Summary](#9-Summary))
+-   [8 Exploring historical synonymny](#8-Exploring-historical-synonymns)
+-   [9 Summary](#9-Summary)
 
 Smart approach, versus less smart approach. Sample ngram data / reduce mass ... to a size that is manageable locally.
 
@@ -268,7 +268,7 @@ tfms[[5]][1:10,1:15]
 
 Some different approaches to condensing our matrices.
 
-Data compiled by folks at the English Lexicon Project. As a bit of "supervision" -- some details about words included in the corpus. Filter out funcky/poor OCR words included in the corpus as well. Super-imperfect.
+Data compiled by folks at the English Lexicon Project. As a bit of "supervision" -- some details about words included in the corpus. Filter out funky/poor OCR-ed words included in the corpus as well. Super-imperfect.
 
 ``` r
 library(lexvarsdatr)
@@ -487,7 +487,7 @@ tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 200)
 
 ------------------------------------------------------------------------
 
-### 8 Exploring historical synonymns
+### 8 Exploring historical synonymny
 
 Simple matrix.
 
