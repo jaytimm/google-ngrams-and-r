@@ -60,13 +60,20 @@ unzipped_eg <- get_zip_csv(url)  #~11 million rows.
 unzipped_eg %>% sample_n(5) %>% knitr::kable()
 ```
 
+    ## Warning in data.table::fread("C:\\Users\\jason\\Google Drive\
+    ## \GitHub\\git_projects\\google_ngrams_and_R\\data\\egs\\googlebooks-
+    ## eng-1M-5gram-20090715-1.csv"): Found and resolved improper quoting out-of-
+    ## sample. First healed line 151: <<"! "" "" Hey 1811 1 1 1>>. If the fields
+    ## are not quoted (e.g. field separator does not appear within any field), try
+    ## quote="" to avoid this warning.
+
 | V1                               |    V2|   V3|   V4|   V5|
 |:---------------------------------|-----:|----:|----:|----:|
-| hands of the Portuguese and      |  1816|    3|    3|    3|
-| that lead to certain tones       |  1896|    1|    1|    1|
-| . Multiplying by the number      |  1947|    1|    1|    1|
-| opposite sides of the mountains  |  1920|    1|    1|    1|
-| to prescribe rules of government |  1875|    1|    1|    1|
+| "subjects . Indeed               |  1875|    1|    1|    1|
+| in the States of his             |  1949|    1|    1|    1|
+| he came back home .              |  1944|    2|    2|    2|
+| demonstrated the accuracy of the |  1886|    4|    4|    4|
+| time and space . We              |  1924|    7|    7|    6|
 
 The **second function** performs a variety of tasks with the aim of sampling & aggregating the raw 5-gram files. Function parameters & details:
 
@@ -120,13 +127,13 @@ unzipped_eg %>%
   knitr::kable()
 ```
 
-| five\_gram                     | quarter       |  freq|
-|:-------------------------------|:--------------|-----:|
-| FOR ME BY MY ASSISTANT         | \[1983,2008\] |     1|
-| THE YOUNG ARE HATCHED ABOUT    | \[1858,1883)  |     7|
-| THE STRONG OPPOSITION OF MANY  | \[1958,1983)  |    13|
-| MURDERED THE TURNKEY ON FRIDAY | \[1858,1883)  |     8|
-| YEAR OR TWO AND SEE            | \[1933,1958)  |     5|
+| five\_gram                     | quarter      |  freq|
+|:-------------------------------|:-------------|-----:|
+| IN THE AGGREGATE TO FIVE       | \[1858,1883) |     7|
+| BREAK ALL THE TEN COMMANDMENTS | \[1958,1983) |     4|
+| THAT TIME HE WAS WELL          | \[1858,1883) |     3|
+| OF HIS EXPERIMENTS AND THEIR   | \[1908,1933) |     3|
+| AS SOON AS ORDER WAS           | \[1933,1958) |    16|
 
 <br>
 
@@ -261,11 +268,9 @@ tfms[[5]][1:10,1:15]
 
 ------------------------------------------------------------------------
 
-### Odds & ends: some optional matrix reduction steps
+### Building a lemma-based lexicon
 
 Some different approaches to condensing our matrices.
-
-#### Building a lemma-based lexicon
 
 Data compiled by folks at the English Lexicon Project. As a bit of "supervision" -- some details about words included in the corpus. Filter out funcky/poor OCR words included in the corpus as well. Super-imperfect.
 
@@ -319,7 +324,9 @@ elp_lexicon_lem <- lexvarsdatr::lvdr_behav_data %>%
 
     ## Joining, by = "form"
 
-#### Lemmatizing terms & features
+------------------------------------------------------------------------
+
+### Lemmatizing terms & features
 
 Feature/lexicon/FCM compression.
 
@@ -378,7 +385,7 @@ tfms_lemmed[[5]][1:10,1:20]
 
 ------------------------------------------------------------------------
 
-#### Filtering features based on frequency
+### Filtering features based on frequency
 
 Reduce. But also a homogenization process.
 
@@ -411,13 +418,13 @@ freqs_by_gen %>%
   knitr::kable()
 ```
 
-| lemma        |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
-|:-------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
-| CLEVERNESS   |          0.06|          0.60|          1.03|          1.01|          1.02|          0.54|          0.50|           0.61|
-| CIRCUMSCRIBE |          9.57|          6.97|          6.76|          7.08|          4.60|          3.81|          3.20|           1.74|
-| WARTIME      |            NA|            NA|            NA|          0.02|          0.05|          5.37|          1.50|           2.24|
-| GAB          |          0.02|          0.10|          0.75|          0.04|          0.88|          0.40|          0.03|           0.86|
-| SEASONALLY   |            NA|            NA|            NA|            NA|            NA|          0.01|            NA|             NA|
+| lemma       |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
+|:------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
+| PSYCHIATRIC |          0.02|            NA|          0.01|          0.02|          0.48|          4.04|         13.73|          23.12|
+| SLANG       |          0.28|          0.39|          0.69|          1.18|          0.59|          0.35|          0.51|           1.71|
+| ENERVATION  |          0.08|          0.08|            NA|          0.05|          0.01|            NA|            NA|             NA|
+| EXAMINATION |        138.76|        170.53|        196.98|        202.25|        214.38|        198.50|        219.39|         177.35|
+| CALIBER     |          0.12|          0.35|          0.66|          1.00|          1.91|          1.93|          1.45|           1.51|
 
 Filter features to forms that
 
@@ -441,7 +448,7 @@ tfms_filtered <- lapply(1:8, function (x)
 
 ------------------------------------------------------------------------
 
-### PPMI
+### PPMI & SVD
 
 Whether or not some or all of the compression steps presented above, ...
 
@@ -483,11 +490,13 @@ Apply function to the list of quarter-century sparse matrices. Here we use the l
 tfms_ppmi <- lapply(tfms_filtered, build_sparse_ppmi)
 ```
 
-### Singular value decomposition
+*Singular value decomposition*
 
 ``` r
 tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 200) 
 ```
+
+------------------------------------------------------------------------
 
 ### Find synonymns (& antonymns)
 
@@ -559,9 +568,6 @@ lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 10)
     ##    OUTFLANK      OUTWIT   VISUALIZE   REPLICATE 
     ##   0.5601198   0.5454435   0.5409273   0.5308103
 
-``` r
-#setwd("C:\\Users\\jtimm\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
-#saveRDS(tfms_mats, 'tfms_mats.rds')
-```
+------------------------------------------------------------------------
 
 ### Summary
