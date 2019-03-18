@@ -6,6 +6,11 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [1 Download-Sample-Aggregate](#1-Download-Sample-Aggregate)
 -   [2 Restructuring corpus](#2-Restructuring-corpus)
 -   [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
+-   [4 Condensing and filtering historical term-feature matrices](#4-Condensing-and-filtering-historical-term-feature-matrices)
+-   [4a Building lemma lexicon](#4a-Building-lemma-lexicon)
+-   [4b Lemmatizing terms and features](#4b-Lemmatizing-terms-and-features)
+-   [4c Filtering features based on frequency](4c-Filtering-features-based-on-frequency)
+
 -   [4 Building a lemma-ish lexicon](#4-Building-a-lemma-ish-lexicon)
 -   [5 Lemmatizing terms and features](#5-Lemmatizing-words-and-features)
 -   [6 Filtering features based on frequency](#6-Filtering-features-based-on-frequency)
@@ -17,7 +22,7 @@ This guide focuses on working with Google n-gram data locally. So, lots of sampl
 
 Google n-gram data are a bit weird as a text structure. As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.
 
-**Endgame:** Finding historical synonyms (-ish). The table below summarizes nearest neighbors for the word *GRASP* over the last 200 years (by quarter century).
+**ENDGAME:** Finding historical synonyms (-ish). The tables below summarize nearest neighbors for the word *GRASP* over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
 
 ![](README_files/figure-markdown_github/unnamed-chunk-1-1.png)
 
