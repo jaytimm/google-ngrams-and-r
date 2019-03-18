@@ -10,9 +10,9 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
     -   [4a Building lemma lexicon](#4a-Building-lemma-lexicon)
     -   [4b Lemmatizing terms and features](#4b-Lemmatizing-terms-and-features)
     -   [4c Filtering features based on frequency](4c-Filtering-features-based-on-frequency)
--   [5 PPMI and SVD](#7-PPMI-and-SVD)
--   [6 Exploring synonymny historically](#8-Exploring-synonymny-historically)
--   [7 Summary](#9-Summary)
+-   [5 PPMI and SVD](#5-PPMI-and-SVD)
+-   [6 Exploring synonymny historically](#6-Exploring-synonymny-historically)
+-   [7 Summary](#7-Summary)
 
 This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smarter aproach to working with n-gram data in its entriety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
 
@@ -493,7 +493,7 @@ for (i in 1:8) {
 Using the `neighbors` function from the `LSAfun` package.
 
 ``` r
-x <- lapply(tfms_mats, LSAfun::neighbors, x = toupper('awful'), n = 10)
+x <- lapply(tfms_mats, LSAfun::neighbors, x = toupper('awful'), n = 100)
 ```
 
 Clean output.
