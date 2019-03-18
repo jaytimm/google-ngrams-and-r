@@ -7,9 +7,10 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [2 Restructuring corpus](#2-Restructuring-corpus)
 -   [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
 -   [4 Condensing and filtering historical term-feature matrices](#4-Condensing-and-filtering-historical-term-feature-matrices)
--   [4a Building lemma lexicon](#4a-Building-lemma-lexicon)
--   [4b Lemmatizing terms and features](#4b-Lemmatizing-terms-and-features)
--   [4c Filtering features based on frequency](4c-Filtering-features-based-on-frequency)
+
+    -   [4a Building lemma lexicon](#4a-Building-lemma-lexicon)
+    -   [4b Lemmatizing terms and features](#4b-Lemmatizing-terms-and-features)
+    -   [4c Filtering features based on frequency](4c-Filtering-features-based-on-frequency)
 
 -   [4 Building a lemma-ish lexicon](#4-Building-a-lemma-ish-lexicon)
 -   [5 Lemmatizing terms and features](#5-Lemmatizing-words-and-features)
