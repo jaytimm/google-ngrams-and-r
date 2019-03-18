@@ -265,9 +265,13 @@ tfms[[5]][1:10,1:15]
 
 ------------------------------------------------------------------------
 
-#### 4a Building lemma lexicon
+### 4 Condensing and filtering historical term-feature matrices
 
 Some different approaches to condensing our matrices.
+
+#### 4a Building lemma lexicon
+
+For good measure, we next demonstrate some methods for "lemmatizing" our historical FCMs. A lemma is properly defined as a word form/part-of-speech pair, and all of its inflectional variants.
 
 Data compiled by folks at the English Lexicon Project. As a bit of "supervision" -- some details about words included in the corpus. Filter out funky/poor OCR-ed words included in the corpus as well. Super-imperfect.
 
@@ -333,8 +337,6 @@ Our lexicon, then, contains ~39k forms. A sample of the lexicon is presented bel
 #### 4b Lemmatizing terms and features
 
 Feature/lexicon/FCM compression.
-
-For good measure, we next demonstrate some methods for "lemmatizing" our historical FCMs. A lemma is properly defined as a word form/part-of-speech pair, and all of its inflectional variants.
 
 Filter features of TFM to feature list created above. And re-order.
 
@@ -452,7 +454,7 @@ tfms_filtered <- lapply(1:8, function (x)
 
 ------------------------------------------------------------------------
 
-### 7 PPMI and SVD
+### 5 PPMI and SVD
 
 Whether or not some or all of the compression steps presented above, ...
 
@@ -460,38 +462,10 @@ Whether or not some or all of the compression steps presented above, ...
 
 The function below calculates PPMI values on sparse matrices, which has been slightly modified from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r).
 
-``` r
-build_sparse_ppmi <- function (pmat) {
-  
-  tcmrs <- Matrix::rowSums(pmat)
-  tcmcs <- Matrix::colSums(pmat)
-
-  N <- sum(tcmrs)
-  colp <- tcmcs/N
-  rowp <- tcmrs/N
-
-  pp <- pmat@p+1
-  ip <- pmat@i+1
-
-  tmpx <- rep(0,length(pmat@x))
-
-  for(i in 1:(length(pmat@p)-1) ){ 
-    ind <- pp[i]:(pp[i+1]-1)
-    not0 <- ip[ind]
-    icol <- pmat@x[ind]
-    tmp <- log( (icol/N) / (rowp[not0] * colp[i] )) #PMI
-    tmpx[ind] <- tmp    
-  }
-
-  pmat@x <- tmpx
-  pmat@x[pmat@x < 0] <- 0 ##PPMI
-  drop0(pmat, tol=0) }
-```
-
 Apply function to the list of quarter-century sparse matrices. Here we use the lemmatized/feature-filtered list, although rawer renditions can be used as well.
 
 ``` r
-tfms_ppmi <- lapply(tfms_filtered, build_sparse_ppmi)
+tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 ```
 
 *Singular value decomposition*
@@ -502,7 +476,7 @@ tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 200)
 
 ------------------------------------------------------------------------
 
-### 8 Exploring synonymny historically
+### 6 Exploring synonymny historically
 
 Simple matrix.
 
@@ -516,59 +490,11 @@ for (i in 1:8) {
 }
 ```
 
-`neighbors` function from the `LSAfun` package.
+Using the `neighbors` function from the `LSAfun` package.
 
 ``` r
-lapply(tfms_mats, LSAfun::neighbors, x = toupper('awful'), n = 10)
+x <- lapply(tfms_mats, LSAfun::neighbors, x = toupper('awful'), n = 10)
 ```
-
-    ## $`[1808,1833)`
-    ##     AWFUL    SQUINT STILLNESS BURLESQUE  JEOPARDY    SOLEMN   HANCOCK 
-    ## 1.0000000 0.7020868 0.5028618 0.4839309 0.4702018 0.4563006 0.4284432 
-    ##  GRANDEUR     HAVOC  SOLITUDE 
-    ## 0.4171006 0.3955748 0.3864050 
-    ## 
-    ## $`[1833,1858)`
-    ##          AWFUL  UNIMPEACHABLE    UNFAILINGLY ACCOUNTABILITY           HUSH 
-    ##      1.0000000      0.9226495      0.6078013      0.5852461      0.4575165 
-    ##       TERRIBLE        SUBLIME        SCOURGE     MYSTERIOUS      STILLNESS 
-    ##      0.4396760      0.4345747      0.4301781      0.4220981      0.3972905 
-    ## 
-    ## $`[1858,1883)`
-    ##        AWFUL         GONG      FEARFUL    SOLEMNITY     DREADFUL 
-    ##    1.0000000    0.5778842    0.5266688    0.4900255    0.4737300 
-    ##     TERRIBLE   PLEASINGLY        DREAD    AVALANCHE PRESENTIMENT 
-    ##    0.4676711    0.4619683    0.4583404    0.4435379    0.4400827 
-    ## 
-    ## $`[1883,1908)`
-    ##       AWFUL    TERRIBLE    GRANDEUR        WARN   EMERGENCY      CRISIS 
-    ##   1.0000000   0.4907441   0.4695427   0.4525932   0.4330937   0.4208578 
-    ##    FASTENER  IMPRESSIVE      ENIGMA CATASTROPHE 
-    ##   0.4145791   0.4131937   0.4087609   0.4072729 
-    ## 
-    ## $`[1908,1933)`
-    ##       AWFUL      SOLEMN      UNVEIL   SOLEMNITY      ENIGMA         SAD 
-    ##   1.0000000   0.5052558   0.4615295   0.4551648   0.4539749   0.4229689 
-    ## CATASTROPHE     WARNING    TERRIBLE        FUSS 
-    ##   0.4101368   0.4056449   0.4014751   0.3954055 
-    ## 
-    ## $`[1933,1958)`
-    ##       AWFUL  IMPRESSIVE CATASTROPHE       APPAL    TERRIBLE      SOLEMN 
-    ##   1.0000000   0.4828261   0.4747451   0.4509247   0.4337449   0.4310660 
-    ##        HUSH     SUBLIME   MORTICIAN        FUSS 
-    ##   0.4237701   0.4219196   0.4056325   0.4045679 
-    ## 
-    ## $`[1958,1983)`
-    ##       AWFUL    TERRIBLE  MYSTERIOUS        DIRE     SUBLIME    FASTENER 
-    ##   1.0000000   0.4792760   0.4356997   0.4300309   0.4273717   0.4116683 
-    ## CATASTROPHE     SECRECY        WARN       AWAIT 
-    ##   0.3892807   0.3792135   0.3753816   0.3736390 
-    ## 
-    ## $`[1983,2008]`
-    ##       AWFUL   CATACLYSM     CARNAGE    DREADFUL    TERRIBLE   BURLESQUE 
-    ##   1.0000000   0.9214979   0.6547534   0.6330563   0.5387366   0.5235076 
-    ##   SOLEMNITY    STIRRING    GRANDEUR CATASTROPHE 
-    ##   0.5221464   0.5009578   0.4978548   0.4856450
 
 Clean output.
 
@@ -577,36 +503,45 @@ strip_syns <- function (x) {
   lapply(1:length(x), function(y)  
     x[[y]] %>%
     as.tibble %>% 
-    rownames_to_column() %>%
-    mutate(syn = paste0(tolower(rowname), ' (', round(value,2),')'),
-         quarter = names(x[y]))%>%
-    select(quarter, syn) %>%
-    slice(-1) %>%
-    group_by(quarter) %>%
-    summarize(syn = paste0(syn, collapse = ', '))) %>%
+    rownames_to_column(var = 'lemma') %>%
+    mutate (quarter = names(x[y]),
+            value = round(value,2))) %>%
     bind_rows() }
 ```
 
 ``` r
-lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 10) %>%
-  strip_syns() %>%
-  knitr::kable()
+syns <- x %>% strip_syns() %>%
+  inner_join(freqs_by_gen) %>%
+  mutate(ppm = round(ppm, 1)) %>%
+  select(-freq) %>%
+  filter (ppm > 1) %>% #This is super effective -- 
+  group_by(quarter) %>%
+  arrange( desc(value))%>%
+  slice(1:10)%>%
+  ungroup()
 ```
 
-| quarter       | syn                                                                                                                                                   |
-|:--------------|:------------------------------------------------------------------------------------------------------------------------------------------------------|
-| \[1808,1833)  | inform (0.52), transmit (0.45), comply (0.39), obligingly (0.37), jameson (0.36), officially (0.36), pungently (0.36), diocesan (0.33), avail (0.33)  |
-| \[1833,1858)  | inform (0.54), transmit (0.48), convey (0.43), assure (0.43), notify (0.39), impart (0.39), lordship (0.37), request (0.37), officially (0.36)        |
-| \[1858,1883)  | inform (0.48), impart (0.45), respond (0.41), convey (0.4), notify (0.39), introduce (0.37), transmit (0.35), avail (0.35), transmission (0.34)       |
-| \[1883,1908)  | landing (0.6), inform (0.6), reassurance (0.54), impart (0.44), transmit (0.44), announce (0.39), comply (0.38), notify (0.37), assure (0.36)         |
-| \[1908,1933)  | inform (0.61), transmit (0.44), request (0.44), convey (0.42), avail (0.4), accede (0.39), send (0.38), comply (0.38), notify (0.37)                  |
-| \[1933,1958)  | inform (0.52), convey (0.5), cesspool (0.48), respond (0.47), recognize (0.4), avail (0.39), comply (0.39), outmatch (0.38), verbalize (0.38)         |
-| \[1958,1983)  | inform (0.57), verbalize (0.52), decode (0.51), convey (0.49), someday (0.47), familiarize (0.46), manipulate (0.46), identify (0.46), respond (0.45) |
-| \[1983,2008\] | reuse (0.59), enshroud (0.59), inform (0.55), outflank (0.55), convey (0.5), decode (0.5), discern (0.5), respond (0.49), capitalize (0.49)           |
+    ## Joining, by = c("lemma", "quarter")
+
+``` r
+g <- list(length(tfms_mats))
+tt <- gridExtra::ttheme_default(base_size = 7)
+
+for (i in 1:length(tfms_mats)) {
+  g[[i]] <- syns %>% 
+    filter (quarter == names(tfms_mats[i])) %>%
+    rename(!!names(tfms_mats[i]) := lemma) %>% 
+    select(-quarter)%>%
+    gridExtra::tableGrob(rows=NULL, theme = tt) }
+
+gridExtra::grid.arrange(grobs = g, nrow = 2)
+```
+
+![](README_files/figure-markdown_github/unnamed-chunk-48-1.png)
 
 ------------------------------------------------------------------------
 
-### 9 Summary
+### 7 Summary
 
 While academic linguists are often critical of Google n-gram data, it is still an incredible cultural resource.
 
