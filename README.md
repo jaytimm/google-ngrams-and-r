@@ -493,7 +493,7 @@ for (i in 1:8) {
 Using the `neighbors` function from the `LSAfun` package.
 
 ``` r
-x <- lapply(tfms_mats, LSAfun::neighbors, x = toupper('awful'), n = 100)
+x <- lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 100)
 ```
 
 Clean output.
@@ -520,8 +520,6 @@ syns <- x %>% strip_syns() %>%
   slice(1:10)%>%
   ungroup()
 ```
-
-    ## Joining, by = c("lemma", "quarter")
 
 ``` r
 g <- list(length(tfms_mats))
