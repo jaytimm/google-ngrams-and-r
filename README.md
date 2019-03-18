@@ -10,9 +10,9 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
     -   [4a Building lemma lexicon](#4a-Building-lemma-lexicon)
     -   [4b Lemmatizing terms and features](#4b-Lemmatizing-terms-and-features)
     -   [4c Filtering features based on frequency](4c-Filtering-features-based-on-frequency)
--   [7 PPMI and SVD](#7-PPMI-and-SVD)
--   [8 Exploring synonymny historically](#8-Exploring-synonymny-historically)
--   [9 Summary](#9-Summary)
+-   [5 PPMI and SVD](#7-PPMI-and-SVD)
+-   [6 Exploring synonymny historically](#8-Exploring-synonymny-historically)
+-   [7 Summary](#9-Summary)
 
 This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smarter aproach to working with n-gram data in its entriety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
 
@@ -265,7 +265,7 @@ tfms[[5]][1:10,1:15]
 
 ------------------------------------------------------------------------
 
-### 4 Building a lemma-ish lexicon
+#### 4a Building lemma lexicon
 
 Some different approaches to condensing our matrices.
 
@@ -330,7 +330,7 @@ Our lexicon, then, contains ~39k forms. A sample of the lexicon is presented bel
 
 ------------------------------------------------------------------------
 
-### 5 Lemmatizing terms and features
+#### 4b Lemmatizing terms and features
 
 Feature/lexicon/FCM compression.
 
@@ -389,7 +389,7 @@ tfms_lemmed[[5]][1:10,1:20]
 
 ------------------------------------------------------------------------
 
-### 6 Filtering features based on frequency
+#### 4c Filtering features based on frequency
 
 Reduce. But also a homogenization process.
 
