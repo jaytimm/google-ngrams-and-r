@@ -19,16 +19,7 @@ Google n-gram data are a bit weird as a text structure. As such, many existing t
 
 **Endgame:** Finding historical synonyms (-ish). The table below summarizes nearest neighbors for the word *GRASP* over the last 200 years (by quarter century).
 
-| quarter       | syn                                                                                                                                                                           |
-|:--------------|:------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| \[1808,1833)  | legionary (0.66), snatch (0.44), wield (0.44), hilt (0.44), sword (0.43), rigidly (0.43), herculean (0.43), hand (0.43), unsheathe (0.42), spoiler (0.41)                     |
-| \[1833,1858)  | omnivorous (0.73), nerveless (0.55), statesmanlike (0.54), wrench (0.45), hand (0.44), weapon (0.44), snatch (0.43), legionary (0.4), sceptre (0.39), wrest (0.39)            |
-| \[1858,1883)  | clutch (0.52), hand (0.51), snatch (0.5), unclasp (0.5), tighten (0.49), holster (0.47), nerveless (0.47), soothingly (0.44), shifty (0.44), hilt (0.44)                      |
-| \[1883,1908)  | penknife (0.58), throttle (0.55), tentacle (0.51), legionary (0.5), nerveless (0.49), wrest (0.48), snatch (0.47), unclasp (0.47), hand (0.46), grip (0.45)                   |
-| \[1908,1933)  | understand (0.59), comprehend (0.56), realize (0.55), perceive (0.5), appreciate (0.49), visualize (0.47), repaint (0.45), masterful (0.45), coworker (0.44), rower (0.44)    |
-| \[1933,1958)  | comprehend (0.6), understand (0.6), realize (0.55), westerner (0.54), appreciate (0.52), perceive (0.52), recognize (0.5), extricate (0.48), discern (0.48), verbalize (0.48) |
-| \[1958,1983)  | comprehend (0.67), understand (0.64), decode (0.51), appreciate (0.51), cope (0.5), verbalize (0.48), lightweight (0.46), discern (0.46), foresee (0.46), westerner (0.45)    |
-| \[1983,2008\] | understand (0.6), comprehend (0.58), grip (0.55), enshroud (0.49), trainee (0.49), parse (0.49), reuse (0.49), disassociate (0.49), perceive (0.48), cope (0.48)              |
+![](README_files/figure-markdown_github/unnamed-chunk-1-1.png)
 
 ------------------------------------------------------------------------
 
@@ -522,8 +513,6 @@ for (i in 1:8) {
   dimnames(x) <- list(rownames(tfms_ppmi[[i]]), c(1:length(tfms_svd[[i]]$d)))
   tfms_mats[[i]] <- x
 }
-
-names(tfms_mats) <- names(tfms)
 ```
 
 `neighbors` function from the `LSAfun` package.
@@ -533,52 +522,52 @@ lapply(tfms_mats, LSAfun::neighbors, x = toupper('awful'), n = 10)
 ```
 
     ## $`[1808,1833)`
-    ##     AWFUL    SQUINT STILLNESS    SOLEMN   SILENCE   HANCOCK  SOLITUDE 
-    ## 1.0000000 0.6138022 0.4913693 0.4875673 0.4516866 0.4511762 0.4432864 
-    ## SOLEMNITY  GRANDEUR REVERENCE 
-    ## 0.4326415 0.4029595 0.3956272 
+    ##     AWFUL    SQUINT STILLNESS BURLESQUE  JEOPARDY    SOLEMN   HANCOCK 
+    ## 1.0000000 0.7020868 0.5028618 0.4839309 0.4702018 0.4563006 0.4284432 
+    ##  GRANDEUR     HAVOC  SOLITUDE 
+    ## 0.4171006 0.3955748 0.3864050 
     ## 
     ## $`[1833,1858)`
-    ##          AWFUL  UNIMPEACHABLE        SUBLIME    UNFAILINGLY ACCOUNTABILITY 
-    ##      1.0000000      0.8234118      0.5248169      0.4980198      0.4648382 
-    ##     MYSTERIOUS        SILENCE        MYSTERY          APPAL       TERRIBLE 
-    ##      0.4538010      0.4512602      0.4296436      0.4204683      0.4047735 
+    ##          AWFUL  UNIMPEACHABLE    UNFAILINGLY ACCOUNTABILITY           HUSH 
+    ##      1.0000000      0.9226495      0.6078013      0.5852461      0.4575165 
+    ##       TERRIBLE        SUBLIME        SCOURGE     MYSTERIOUS      STILLNESS 
+    ##      0.4396760      0.4345747      0.4301781      0.4220981      0.3972905 
     ## 
     ## $`[1858,1883)`
-    ##      AWFUL  SOLEMNITY   DREADFUL    FEARFUL   TERRIBLE MYSTERIOUS 
-    ##  1.0000000  0.5721841  0.5622825  0.5369559  0.4886308  0.4587954 
-    ##       GONG    PAINFUL    OVERSEE   GRANDEUR 
-    ##  0.4442043  0.4302043  0.4194969  0.4172082 
+    ##        AWFUL         GONG      FEARFUL    SOLEMNITY     DREADFUL 
+    ##    1.0000000    0.5778842    0.5266688    0.4900255    0.4737300 
+    ##     TERRIBLE   PLEASINGLY        DREAD    AVALANCHE PRESENTIMENT 
+    ##    0.4676711    0.4619683    0.4583404    0.4435379    0.4400827 
     ## 
     ## $`[1883,1908)`
-    ##      AWFUL   GRANDEUR   TERRIBLE       WARN IMPRESSIVE      BRINK 
-    ##  1.0000000  0.5275426  0.4692250  0.4446320  0.4205578  0.4133154 
-    ## MYSTERIOUS      STERN    FEARFUL  SOLEMNITY 
-    ##  0.4092081  0.4090976  0.4033459  0.3977852 
+    ##       AWFUL    TERRIBLE    GRANDEUR        WARN   EMERGENCY      CRISIS 
+    ##   1.0000000   0.4907441   0.4695427   0.4525932   0.4330937   0.4208578 
+    ##    FASTENER  IMPRESSIVE      ENIGMA CATASTROPHE 
+    ##   0.4145791   0.4131937   0.4087609   0.4072729 
     ## 
     ## $`[1908,1933)`
-    ##     AWFUL  GRANDEUR SOLEMNITY    SOLEMN   MYSTERY       SAD   FEARFUL 
-    ## 1.0000000 0.4414021 0.4332082 0.4303716 0.4007711 0.3987826 0.3852825 
-    ##  DREADFUL  TERRIBLE   WEIGHTY 
-    ## 0.3751914 0.3577784 0.3552299 
+    ##       AWFUL      SOLEMN      UNVEIL   SOLEMNITY      ENIGMA         SAD 
+    ##   1.0000000   0.5052558   0.4615295   0.4551648   0.4539749   0.4229689 
+    ## CATASTROPHE     WARNING    TERRIBLE        FUSS 
+    ##   0.4101368   0.4056449   0.4014751   0.3954055 
     ## 
     ## $`[1933,1958)`
-    ##       AWFUL CATASTROPHE    GRANDEUR  IMPRESSIVE      SOLEMN       APPAL 
-    ##   1.0000000   0.4397561   0.4361084   0.4305086   0.4118108   0.4015999 
-    ##  MYSTERIOUS     SUBLIME    CALAMITY   SPECTACLE 
-    ##   0.3950894   0.3888246   0.3864190   0.3844930 
+    ##       AWFUL  IMPRESSIVE CATASTROPHE       APPAL    TERRIBLE      SOLEMN 
+    ##   1.0000000   0.4828261   0.4747451   0.4509247   0.4337449   0.4310660 
+    ##        HUSH     SUBLIME   MORTICIAN        FUSS 
+    ##   0.4237701   0.4219196   0.4056325   0.4045679 
     ## 
     ## $`[1958,1983)`
-    ##      AWFUL   TERRIBLE MYSTERIOUS   FASTENER       DIRE    SUBLIME 
-    ##  1.0000000  0.4276057  0.4121773  0.3761976  0.3679445  0.3644093 
-    ##   CALAMITY    SILENCE      CRUEL    SECRECY 
-    ##  0.3635237  0.3501145  0.3428076  0.3410534 
+    ##       AWFUL    TERRIBLE  MYSTERIOUS        DIRE     SUBLIME    FASTENER 
+    ##   1.0000000   0.4792760   0.4356997   0.4300309   0.4273717   0.4116683 
+    ## CATASTROPHE     SECRECY        WARN       AWAIT 
+    ##   0.3892807   0.3792135   0.3753816   0.3736390 
     ## 
     ## $`[1983,2008]`
-    ##     AWFUL CATACLYSM   CARNAGE  DREADFUL SOLEMNITY      POMP  GRANDEUR 
-    ## 1.0000000 0.8497796 0.5876992 0.5775361 0.5227230 0.5114711 0.5091410 
-    ##  TERRIBLE BURLESQUE  CALAMITY 
-    ## 0.4900803 0.4864659 0.4747446
+    ##       AWFUL   CATACLYSM     CARNAGE    DREADFUL    TERRIBLE   BURLESQUE 
+    ##   1.0000000   0.9214979   0.6547534   0.6330563   0.5387366   0.5235076 
+    ##   SOLEMNITY    STIRRING    GRANDEUR CATASTROPHE 
+    ##   0.5221464   0.5009578   0.4978548   0.4856450
 
 Clean output.
 
@@ -603,16 +592,16 @@ lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 10) %>%
   knitr::kable()
 ```
 
-| quarter       | syn                                                                                                                                                 |
-|:--------------|:----------------------------------------------------------------------------------------------------------------------------------------------------|
-| \[1808,1833)  | inform (0.51), transmit (0.46), comply (0.41), convey (0.37), receive (0.35), diocesan (0.34), subserve (0.34), advertise (0.33), report (0.33)     |
-| \[1833,1858)  | inform (0.52), impart (0.44), convey (0.43), transmit (0.42), receive (0.38), intelligence (0.34), rid (0.34), transmission (0.33), announce (0.33) |
-| \[1858,1883)  | inform (0.47), respond (0.45), transmit (0.44), impart (0.42), convey (0.41), avail (0.4), discover (0.36), receive (0.36), introduce (0.36)        |
-| \[1883,1908)  | inform (0.54), landing (0.52), impart (0.5), reassurance (0.45), transmit (0.41), consult (0.35), receive (0.35), rejoin (0.35), excellency (0.34)  |
-| \[1908,1933)  | inform (0.53), jameson (0.46), request (0.44), transmit (0.39), address (0.39), message (0.37), send (0.37), accede (0.37), notify (0.36)           |
-| \[1933,1958)  | convey (0.5), inform (0.44), respond (0.44), impart (0.39), verbalize (0.38), divert (0.36), transmit (0.35), perceive (0.35), send (0.34)          |
-| \[1958,1983)  | verbalize (0.55), decode (0.53), inform (0.51), someday (0.49), discover (0.49), convey (0.47), identify (0.47), ferret (0.47), dislodge (0.46)     |
-| \[1983,2008\] | enshroud (0.63), trainee (0.63), parse (0.63), reuse (0.63), decode (0.61), outflank (0.56), outwit (0.55), visualize (0.54), replicate (0.53)      |
+| quarter       | syn                                                                                                                                                   |
+|:--------------|:------------------------------------------------------------------------------------------------------------------------------------------------------|
+| \[1808,1833)  | inform (0.52), transmit (0.45), comply (0.39), obligingly (0.37), jameson (0.36), officially (0.36), pungently (0.36), diocesan (0.33), avail (0.33)  |
+| \[1833,1858)  | inform (0.54), transmit (0.48), convey (0.43), assure (0.43), notify (0.39), impart (0.39), lordship (0.37), request (0.37), officially (0.36)        |
+| \[1858,1883)  | inform (0.48), impart (0.45), respond (0.41), convey (0.4), notify (0.39), introduce (0.37), transmit (0.35), avail (0.35), transmission (0.34)       |
+| \[1883,1908)  | landing (0.6), inform (0.6), reassurance (0.54), impart (0.44), transmit (0.44), announce (0.39), comply (0.38), notify (0.37), assure (0.36)         |
+| \[1908,1933)  | inform (0.61), transmit (0.44), request (0.44), convey (0.42), avail (0.4), accede (0.39), send (0.38), comply (0.38), notify (0.37)                  |
+| \[1933,1958)  | inform (0.52), convey (0.5), cesspool (0.48), respond (0.47), recognize (0.4), avail (0.39), comply (0.39), outmatch (0.38), verbalize (0.38)         |
+| \[1958,1983)  | inform (0.57), verbalize (0.52), decode (0.51), convey (0.49), someday (0.47), familiarize (0.46), manipulate (0.46), identify (0.46), respond (0.45) |
+| \[1983,2008\] | reuse (0.59), enshroud (0.59), inform (0.55), outflank (0.55), convey (0.5), decode (0.5), discern (0.5), respond (0.49), capitalize (0.49)           |
 
 ------------------------------------------------------------------------
 
