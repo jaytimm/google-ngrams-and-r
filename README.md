@@ -9,7 +9,7 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [4 Condensing and filtering historical term-feature matrices](#4-Condensing-and-filtering-historical-term-feature-matrices)
     -   [4a Building lemma lexicon](#4a-Building-lemma-lexicon)
     -   [4b Lemmatizing terms and features](#4b-Lemmatizing-terms-and-features)
-    -   [4c Filtering features based on frequency](4c-Filtering-features-based-on-frequency)
+    -   [4c Filtering features based on frequency](#4c-Filtering-features-based-on-frequency)
 -   [5 PPMI and SVD](#5-PPMI-and-SVD)
 -   [6 Exploring synonymny historically](#6-Exploring-synonymny-historically)
 -   [7 Summary](#7-Summary)
@@ -19,6 +19,8 @@ This guide focuses on working with Google n-gram data locally. So, lots of sampl
 Google n-gram data are a bit weird as a text structure. As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.
 
 **ENDGAME:** Finding historical synonyms (-ish). The tables below summarize nearest neighbors for the word *GRASP* over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
+
+<br>
 
 ![](README_files/figure-markdown_github/unnamed-chunk-1-1.png)
 
@@ -169,7 +171,7 @@ Per each file/sub-corpus generated above, here we:
 -   flip 5-grams as character string to long format
 -   remove stop words
 
-Per the table above, the 5-gram "MURDERED THE TURNKEY ON FRIDAY" occurred 8 times during the quarter-century spanning 1858-1882 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (8), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "THE" and "ON"). The ID serves to preserve the ngram as a context of usage (or mini-text).
+Per the table above, the 5-gram "BREAK ALL THE TEN COMMANDMENTS" occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
 
 ``` r
 setwd(local_raw)
@@ -267,44 +269,37 @@ tfms[[5]][1:10,1:15]
 
 ### 4 Condensing and filtering historical term-feature matrices
 
-Some different approaches to condensing our matrices.
+At present, each historical TFM is quite large (~75k x 75k), and comprised of a uniqe set of terms & features. Here we present some optional steps for condensing & homogenizing (& cleaning) TFM composition.
 
-#### 4a Building lemma lexicon
+------------------------------------------------------------------------
 
-For good measure, we next demonstrate some methods for "lemmatizing" our historical FCMs. A lemma is properly defined as a word form/part-of-speech pair, and all of its inflectional variants.
+#### 4a Building a lexeme-lemma lexicon
 
-Data compiled by folks at the English Lexicon Project. As a bit of "supervision" -- some details about words included in the corpus. Filter out funky/poor OCR-ed words included in the corpus as well. Super-imperfect.
+One approach to compressing elements of a TFM is to aggregate forms to lexemes. A lexeme is roughly the dictionary representation of a word, including part of speech, and an abstraction over the inflectional variants (ie, lemmas) of a given word-pos pair. Example lexeme-lemma "paradigms" are presented below:
 
-``` r
-library(lexvarsdatr)
-```
+-   \[stretch, verb\] - stretch, stretches, streched - stretching;
+-   \[stretch, noun\] - stretch, stretches;
+-   \[stretched, past.part as adjective\] - stretched;
+-   \[stretching, present.part as noun\] - stretching.
 
-    ## Data included in this package were obtained from supplemental materials made available from these sources:
-    ##  
-    ## Kuperman, V., Stadthagen-Gonzalez, H., & Brysbaert, M. (2012). Age-of-acquisition ratings for 30,000 English words. Behavior Research Methods, 44(4), 978-990.
-    ## 
-    ## Balota, D. A., Yap, M. J., Hutchison, K. A., Cortese, M. J., Kessler, B., Loftis, B., ... & Treiman, R. (2007). The English lexicon project. Behavior research methods, 39(3), 445-459.
-    ## 
-    ## Brysbaert, M., Warriner, A. B., & Kuperman, V. (2014). Concreteness ratings for 40 thousand generally known English word lemmas. Behavior research methods, 46(3), 904-911.
-    ## 
-    ## Nelson, D. L., McEvoy, C. L., & Schreiber, T. A. (2004). The University of South Florida free association, rhyme, and word fragment norms. Behavior Research Methods, Instruments, & Computers, 36(3), 402-407.
-    ## 
-    ## Baayen, R. H., Piepenbrock, R., & Gulikers, L. (1995). The CELEX lexical database [webcelex]. Philadelphia, PA: University of Pennsylvania, Linguistic Data Consortium.
+Forms included in Google ngram data, however, are not POS-annotated. So, the distinctions presented above (eg, stretches - 3PerSingPres and stretches - NPlur) are lost. In the absence of POS distinctions, then, the four lexemes presented above become a single "orthographic" lexeme \[stretch\] with four lemmas \[stretch, stretches, stretched, stretching\].
 
-An imperfect resource. Derived from the British National Corpus (BNC).
+To map forms/lemmas to orthographic lexemes, we use a British National Corpus (BNC)-derived resource made Git Hub available here. It is an imperfect resource, but mostly ideal for our purposes here. We do some restructuring below:
 
 ``` r
-lemma_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt'), 
+lexeme_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt'), 
                       header = FALSE, 
                       skip = 10, sep = '\t')%>%
-  separate(V1, into = c('lemma', 'form'), sep = ' -> ') %>%
-  mutate(lemma = toupper(gsub('/.*$', '', lemma)),
+  separate(V1, into = c('lexeme', 'form'), sep = ' -> ') %>%
+  mutate(lexeme = toupper(gsub('/.*$', '', lexeme)),
          form = toupper(form))%>%
   separate_rows (form, sep = ',') %>%
-  filter(grepl("^[A-Z]+$", lemma)) %>%
+  filter(grepl("^[A-Z]+$", lexeme)) %>%
   group_by(form) %>% slice(1) 
-#some single forms are mapped to multiple lemmas -- n=136 
+#some single forms are mapped to multiple lexemes -- n=136 
 ```
+
+Additionally, we want to do some filtering of the elements of our matrices to include forms that are most familiar to speakers, as well as to exclude elements that may be funky via OCR errors, etc. The English Lexicon Project (ELP) has aggregated a host of behavioral data & lexical features for a large portion of the English lexicon, which I have included in my R package `lexvarsdatr`.
 
 ``` r
 elp_lexicon_lem <- lexvarsdatr::lvdr_behav_data %>%  
@@ -313,24 +308,19 @@ elp_lexicon_lem <- lexvarsdatr::lvdr_behav_data %>%
   mutate(form = toupper(form)) %>%
   select(form, pos) %>%
   filter(!grepl("-|'", form)) %>%
-  left_join(lemma_lexicon)%>%
-  mutate(lemma = ifelse(is.na(lemma), form, lemma),
+  left_join(lexeme_lexicon)%>%
+  mutate(lexeme = ifelse(is.na(lexeme), form, lexeme),
          pos = gsub('\\|','-', pos))
 ```
 
 Our lexicon, then, contains ~39k forms. A sample of the lexicon is presented below:
 
-| form        | pos   | lemma       |
-|:------------|:------|:------------|
-| ABANDON     | VB-NN | ABANDON     |
-| ABANDONED   | VB-JJ | ABANDON     |
-| ABANDONING  | VB    | ABANDON     |
-| ABANDONMENT | NN    | ABANDONMENT |
-| ABASE       | VB    | ABASE       |
-| ABASEMENT   | NN    | ABASEMENT   |
-| ABASH       | VB    | ABASH       |
-| ABATE       | VB    | ABATE       |
-| ABATED      | VB    | ABATE       |
+| form       | pos      | lexeme  |
+|:-----------|:---------|:--------|
+| STRETCH    | NN-VB    | STRETCH |
+| STRETCHED  | VB-JJ    | STRETCH |
+| STRETCHES  | NN-VB    | STRETCH |
+| STRETCHING | VB-NN-JJ | STRETCH |
 
 ------------------------------------------------------------------------
 
@@ -509,6 +499,8 @@ strip_syns <- function (x) {
     bind_rows() }
 ```
 
+Add frequencies, and filter neighbors ... Frequency filter is super helpful.
+
 ``` r
 syns <- x %>% strip_syns() %>%
   inner_join(freqs_by_gen) %>%
@@ -520,6 +512,8 @@ syns <- x %>% strip_syns() %>%
   slice(1:10)%>%
   ungroup()
 ```
+
+Plot below...
 
 ``` r
 g <- list(length(tfms_mats))
@@ -535,12 +529,12 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-48-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-47-1.png)
 
 ------------------------------------------------------------------------
 
 ### 7 Summary
 
-While academic linguists are often critical of Google n-gram data, it is still an incredible cultural resource.
+While academic linguists (of the functional/cognitive/usage-based varieties) are often critical of Google n-gram data, it is still an incredible cultural resource.
 
 Many of the methodological decisions made here can certainly be tweaked to improve results.
