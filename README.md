@@ -299,7 +299,7 @@ lemma_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/le
 #some single forms are mapped to multiple lemmas -- n=136 
 ```
 
-The English Lexicon Project (ELP) has aggregated a host of behavioral data & lexical features for a large portion of the English lexicon, which I have included in my R package `lexvarsdatr`. Here, we filter the lemma lexicon from above to only lemmas included in the ELP. Again, this step is not necessary. We do it here simply to focus on the portion of the lexicon most familiar to speakers, and to eliminate any potential funk from the original lexeme-lemma crosswalk.
+The **English Lexicon Project** (ELP) has aggregated a host of behavioral data & lexical features for a large portion of the English lexicon, which I have included in my R package `lexvarsdatr`. Here, we filter the lemma lexicon from above to only lemmas included in the ELP. Again, this step is not necessary. We do it here simply to focus on the portion of the lexicon most familiar to speakers, and to eliminate any potential funk from the original lexeme-lemma crosswalk.
 
 ``` r
 elp_lexicon <- lexvarsdatr::lvdr_behav_data %>%  
@@ -309,7 +309,7 @@ elp_lemma_lexicon <- subset(lemma_lexicon,
                         lemma %in% toupper(elp_lexicon$Word))
 ```
 
-Our new (common) lexicon, then, contains ~54k forms and ~22k lexemes. A sample of the lexicon is presented below:
+Our new (common) lexicon, then, contains ~54k forms and ~22k lemmas. A sample of the lexicon is presented below:
 
 | lemma     | form        |
 |:----------|:------------|
@@ -331,10 +331,7 @@ Our new (common) lexicon, then, contains ~54k forms and ~22k lexemes. A sample o
 
 #### 4b Lemmatizing terms and features
 
-The function below performs two simple tasks:
-
--   it filters historical TFMs to forms included in the common lexicon, and
--   it aggregates term/feature co-occurrences by lexeme (with some help from the `Matrix.utlis` package).
+Next, we filter terms & features comprising the historical TFMs to forms included in the common lexicon, and then aggregate term-feature co-occurrence frequencies by lemma. The function below performs both tasks.
 
 ``` r
 library(Matrix.utils)
@@ -357,11 +354,13 @@ lemmatize_matrix <- function (x) {
 }
 ```
 
-Apply function. A sample portion of a newly
+Apply function to the list of historical TFMs.
 
 ``` r
 tfms_lemmed <- lapply(tfms, lemmatize_matrix)
 ```
+
+A small portion of the **lemmatized TFM** for the 1908-1932 sub-corpus is presented below. Again, full data structure is a list of TFMs by quarter.
 
 ``` r
 tfms_lemmed[[5]][1:10,1:20]
@@ -387,13 +386,15 @@ tfms_lemmed[[5]][1:10,1:20]
 
 #### 4c Filtering features based on frequency
 
-So, at this point, the composition of the matrices is limited to lexemes included in the common lexicon. However, the actual term & feature composition of each matrix is different. \[Perhaps demonstrate.\]
+At this point, the composition of the matrices is limited to lemmas included in the common lexicon. However, two issues remain:
 
-While differing number of terms is not necessarily problematic, we want term vectors/embeddings to be comprised of (co-occurrence frequencies with) the same features.
+-   First, the actual term & feature composition of each matrix is still different. While differing number of terms is not necessarily problematic, we want term embeddings to be comprised of the same features historically.
 
-A common approach to homogenizing features across historical TFMs is frequency-based. ... From a histroical perspective, ...
+-   Second, our matrices are still comprised of a substantial number of features, even after lemmatization (max ~22k, per composition of commom lexicon), making for super-sparse term vectors.
 
-Here, we extract frequencies from each quarter-century TFM via matrix diagonals.
+To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus. To address the second issue, we limit features to only those that occur within a given frequency range.
+
+Below, we extract lemma frequencies from each quarter-century TFM via matrix diagonals.
 
 ``` r
 freqs_by_gen <- lapply(1:8, function (x)
@@ -410,7 +411,7 @@ freqs_by_gen <- lapply(1:8, function (x)
   select(-corpus)
 ```
 
-Historical frequencies for a random sample of forms in the lexicon:
+Historical frequencies for a small set of lemmas in the sampled ngram corpus are presented below. Note that these frequencies are very rough, and will likely differ some from numbers obtained from Google's ngram viewer.
 
 ``` r
 freqs_by_gen %>%
@@ -428,12 +429,10 @@ freqs_by_gen %>%
 | EXAMINATION |        138.76|        170.53|        196.98|        202.25|        214.38|        198.50|        219.39|         177.35|
 | CALIBER     |          0.12|          0.35|          0.66|          1.00|          1.91|          1.93|          1.45|           1.51|
 
-Filter features to forms that
-
-The 50th to 5,049th most frequent lemmas.
+Based on the frequency table above, we create a list of lemmas that occur in every quarter-century; then we filter these lemmas to the 50th to 5,049th most frequent based on median frequencies historically.
 
 ``` r
-terms <- freqs_by_gen %>%
+filtered_features <- freqs_by_gen %>%
   group_by(lemma) %>%
   mutate(quarter_count = length(quarter),
          ppm = median(ppm)) %>%
@@ -443,9 +442,11 @@ terms <- freqs_by_gen %>%
   slice(50:5049) 
 ```
 
+Then we subset features in the set of lemmatized TFMs. The result is 8 new TFMs, *n* x 5,000 in dimension.
+
 ``` r
 tfms_filtered <- lapply(1:8, function (x)
-  tfms_lemmed[[x]][,colnames(tfms_lemmed[[x]]) %in% terms$lemma] )
+  tfms_lemmed[[x]][,colnames(tfms_lemmed[[x]]) %in% filtered_features$lemma] )
 ```
 
 ------------------------------------------------------------------------
