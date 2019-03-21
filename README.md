@@ -271,66 +271,70 @@ tfms[[5]][1:10,1:15]
 
 At present, each historical TFM is quite large (~75k x 75k), and comprised of a uniqe set of terms & features. Here we present some optional steps for condensing & homogenizing (& cleaning) TFM composition.
 
-------------------------------------------------------------------------
-
 #### 4a Building a lexeme-lemma lexicon
 
-One approach to compressing elements of a TFM is to aggregate forms to lexemes. A lexeme is roughly the dictionary representation of a word, including part of speech, and an abstraction over the inflectional variants (ie, lemmas) of a given word-pos pair. Example lexeme-lemma "paradigms" are presented below:
+One approach to compressing elements of a TFM is to aggregate forms to lemmas. A lemma is the dictionary representation of a word-part-of-speech pair, and an abstraction over the inflectional variants/forms of a given word-POS pair. Example lemma-form paradigms are presented below:
 
--   \[stretch, verb\] - stretch, stretches, streched - stretching;
+-   \[stretch, verb\] - stretch, stretches, streched - stretched/stretching;
 -   \[stretch, noun\] - stretch, stretches;
 -   \[stretched, past.part as adjective\] - stretched;
 -   \[stretching, present.part as noun\] - stretching.
 
-Forms included in Google ngram data, however, are not POS-annotated. So, the distinctions presented above (eg, stretches - 3PerSingPres and stretches - NPlur) are lost. In the absence of POS distinctions, then, the four lexemes presented above become a single "orthographic" lexeme \[stretch\] with four lemmas \[stretch, stretches, stretched, stretching\].
+Forms included in Google ngram data, however, are not POS-annotated. So, the distinctions presented above (eg, stretches - 3PerSingPres and stretches - NPlur) are lost. In the absence of POS distinctions, then, the four lemmas presented above become a single "orthographic" lemma \[stretch\] with four forms/variants \[stretch, stretches, stretched, stretching\], each ambiguous with respect to grammatical category.
 
-To map forms/lemmas to orthographic lexemes, we use a British National Corpus (BNC)-derived resource made Git Hub available here. It is an imperfect resource, but mostly ideal for our purposes here. We do some restructuring below:
+To map forms to orthographic lemmas, we use a British National Corpus (BNC)-derived resource made Git Hub available here. DESCRIBE. It is an imperfect resource, but mostly ideal for our purposes here. We do some restructuring below:
 
 ``` r
-lexeme_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt'), 
+lemma_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt'), 
                       header = FALSE, 
                       skip = 10, sep = '\t')%>%
-  separate(V1, into = c('lexeme', 'form'), sep = ' -> ') %>%
-  mutate(lexeme = toupper(gsub('/.*$', '', lexeme)),
-         form = toupper(form))%>%
+  separate(V1, into = c('lemma', 'form'), sep = ' -> ') %>%
+  mutate(lemma = toupper(gsub('/.*$', '', lemma)),
+         form = toupper(form),
+         form = paste0(lemma,',',form))%>%
   separate_rows (form, sep = ',') %>%
-  filter(grepl("^[A-Z]+$", lexeme)) %>%
-  group_by(form) %>% slice(1) 
-#some single forms are mapped to multiple lexemes -- n=136 
+  filter(grepl("^[A-Z]+$", form)) %>%
+  group_by(form) %>% slice(1) %>%
+  arrange(lemma, form)
+#some single forms are mapped to multiple lemmas -- n=136 
 ```
 
-Additionally, we want to do some filtering of the elements of our matrices to include forms that are most familiar to speakers, as well as to exclude elements that may be funky via OCR errors, etc. The English Lexicon Project (ELP) has aggregated a host of behavioral data & lexical features for a large portion of the English lexicon, which I have included in my R package `lexvarsdatr`.
+The English Lexicon Project (ELP) has aggregated a host of behavioral data & lexical features for a large portion of the English lexicon, which I have included in my R package `lexvarsdatr`. Here, we filter the lemma lexicon from above to only lemmas included in the ELP. Again, this step is not necessary. We do it here simply to focus on the portion of the lexicon most familiar to speakers, and to eliminate any potential funk from the original lexeme-lemma crosswalk.
 
 ``` r
-elp_lexicon_lem <- lexvarsdatr::lvdr_behav_data %>%  
-  filter(!is.na(POS)) %>%
-  rename(form = Word, pos = POS) %>%
-  mutate(form = toupper(form)) %>%
-  select(form, pos) %>%
-  filter(!grepl("-|'", form)) %>%
-  left_join(lexeme_lexicon)%>%
-  mutate(lexeme = ifelse(is.na(lexeme), form, lexeme),
-         pos = gsub('\\|','-', pos))
+elp_lexicon <- lexvarsdatr::lvdr_behav_data %>%  
+  filter(!is.na(POS))
+
+elp_lemma_lexicon <- subset(lemma_lexicon, 
+                        lemma %in% toupper(elp_lexicon$Word))
 ```
 
-Our lexicon, then, contains ~39k forms. A sample of the lexicon is presented below:
+Our new (common) lexicon, then, contains ~54k forms and ~22k lexemes. A sample of the lexicon is presented below:
 
-| form       | pos      | lexeme  |
-|:-----------|:---------|:--------|
-| STRETCH    | NN-VB    | STRETCH |
-| STRETCHED  | VB-JJ    | STRETCH |
-| STRETCHES  | NN-VB    | STRETCH |
-| STRETCHING | VB-NN-JJ | STRETCH |
+| lemma     | form        |
+|:----------|:------------|
+| ABDUCT    | ABDUCT      |
+| ABDUCT    | ABDUCTED    |
+| ABDUCT    | ABDUCTING   |
+| ABDUCT    | ABDUCTS     |
+| BIG       | BIG         |
+| BIG       | BIGGER      |
+| BIG       | BIGGEST     |
+| INDIGNITY | INDIGNITIES |
+| INDIGNITY | INDIGNITY   |
+| WIN       | WIN         |
+| WIN       | WINNING     |
+| WIN       | WINS        |
+| WIN       | WON         |
 
 ------------------------------------------------------------------------
 
 #### 4b Lemmatizing terms and features
 
-Feature/lexicon/FCM compression.
+The function below performs two simple tasks:
 
-Filter features of TFM to feature list created above. And re-order.
-
-Lemmatize list of matrices. Perhaps lemma & filter as two steps.
+-   it filters historical TFMs to forms included in the common lexicon, and
+-   it aggregates term/feature co-occurrences by lexeme (with some help from the `Matrix.utlis` package).
 
 ``` r
 library(Matrix.utils)
@@ -353,7 +357,7 @@ lemmatize_matrix <- function (x) {
 }
 ```
 
-Apply function.
+Apply function. A sample portion of a newly
 
 ``` r
 tfms_lemmed <- lapply(tfms, lemmatize_matrix)
@@ -383,11 +387,13 @@ tfms_lemmed[[5]][1:10,1:20]
 
 #### 4c Filtering features based on frequency
 
-Reduce. But also a homogenization process.
+So, at this point, the composition of the matrices is limited to lexemes included in the common lexicon. However, the actual term & feature composition of each matrix is different. \[Perhaps demonstrate.\]
 
-While our matrices can have different lengths (ie, include different terms), we want them to be comprised of the same features. So that we can compare them historically.
+While differing number of terms is not necessarily problematic, we want term vectors/embeddings to be comprised of (co-occurrence frequencies with) the same features.
 
-Redo frequency -- diagonals.
+A common approach to homogenizing features across historical TFMs is frequency-based. ... From a histroical perspective, ...
+
+Here, we extract frequencies from each quarter-century TFM via matrix diagonals.
 
 ``` r
 freqs_by_gen <- lapply(1:8, function (x)
