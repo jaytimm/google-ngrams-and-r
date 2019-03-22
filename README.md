@@ -6,10 +6,7 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [1 Download-Sample-Aggregate](#1-Download-Sample-Aggregate)
 -   [2 Restructuring corpus](#2-Restructuring-corpus)
 -   [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
--   [4 Condensing and filtering historical term-feature matrices](#4-Condensing-and-filtering-historical-term-feature-matrices)
-    -   [4a Building lemma lexicon](#4a-Building-lemma-lexicon)
-    -   [4b Lemmatizing terms and features](#4b-Lemmatizing-terms-and-features)
-    -   [4c Filtering features based on frequency](#4c-Filtering-features-based-on-frequency)
+-   [4 Filtering historical term-feature matrices](#4-Filtering-historical-term-feature-matrices)
 -   [5 PPMI and SVD](#5-PPMI-and-SVD)
 -   [6 Exploring synonymny historically](#6-Exploring-synonymny-historically)
 -   [7 Summary](#7-Summary)
@@ -213,6 +210,24 @@ grams[ , id := .GRP, by = key(grams)]
 grams[, corp := NULL]  #n = 120,920,432
 ```
 
+``` r
+summary <- grams[, list(freq = sum(freq), type=length(unique(ngram))), by=quarter] %>% 
+  arrange(quarter)
+```
+
+**Some corpus descriptives**. These are rough estimates. Keep in mind that
+
+| quarter       |       freq|   type|
+|:--------------|----------:|------:|
+| \[1808,1833)  |   66183994|  59767|
+| \[1833,1858)  |  147983804|  72567|
+| \[1858,1883)  |  184728372|  80140|
+| \[1883,1908)  |  238699208|  85044|
+| \[1908,1933)  |  190794906|  81840|
+| \[1933,1958)  |  184923418|  79384|
+| \[1958,1983)  |  159967871|  78302|
+| \[1983,2008\] |  145837999|  75723|
+
 Then we re-split the corpus into eight sub-corpora, one for each quarter-century.
 
 ``` r
@@ -245,7 +260,7 @@ tfms <- lapply(1:8, function (y)
 names(tfms) <- names(grams)
 ```
 
-A small portion of the TFM for the 1908-1932 sub-corpus is presented below. Full data structure is a list of TFMs by quarter.
+A small portion of the TFM for the 1908-1932 sub-corpus is presented below. Full data structure is a list of TFMs by quarter-century.
 
 ``` r
 library(Matrix)
@@ -267,140 +282,53 @@ tfms[[5]][1:10,1:15]
 
 ------------------------------------------------------------------------
 
-### 4 Condensing and filtering historical term-feature matrices
+### 4 Filtering historical term-feature matrices
 
-At present, each historical TFM is quite large (~75k x 75k), and comprised of a uniqe set of terms & features. Here we present some optional steps for condensing & homogenizing (& cleaning) TFM composition.
-
-#### 4a Building a lexeme-lemma lexicon
-
-One approach to compressing elements of a TFM is to aggregate forms to lemmas. A lemma is the dictionary representation of a word-part-of-speech pair, and an abstraction over the inflectional variants/forms of a given word-POS pair. Example lemma-form paradigms are presented below:
-
--   \[stretch, verb\] - stretch, stretches, streched - stretched/stretching;
--   \[stretch, noun\] - stretch, stretches;
--   \[stretched, past.part as adjective\] - stretched;
--   \[stretching, present.part as noun\] - stretching.
-
-Forms included in Google ngram data, however, are not POS-annotated. So, the distinctions presented above (eg, stretches - 3PerSingPres and stretches - NPlur) are lost. In the absence of POS distinctions, then, the four lemmas presented above become a single "orthographic" lemma \[stretch\] with four forms/variants \[stretch, stretches, stretched, stretching\], each ambiguous with respect to grammatical category.
-
-To map forms to orthographic lemmas, we use a British National Corpus (BNC)-derived resource made Git Hub available here. DESCRIBE. It is an imperfect resource, but mostly ideal for our purposes here. We do some restructuring below:
+At present, our historical TFMs have the following dimensions:
 
 ``` r
-lemma_lexicon <- read.csv( url('https://raw.githubusercontent.com/skywind3000/lemma.en/master/lemma.en.txt'), 
-                      header = FALSE, 
-                      skip = 10, sep = '\t')%>%
-  separate(V1, into = c('lemma', 'form'), sep = ' -> ') %>%
-  mutate(lemma = toupper(gsub('/.*$', '', lemma)),
-         form = toupper(form),
-         form = paste0(lemma,',',form))%>%
-  separate_rows (form, sep = ',') %>%
-  filter(grepl("^[A-Z]+$", form)) %>%
-  group_by(form) %>% slice(1) %>%
-  arrange(lemma, form)
-#some single forms are mapped to multiple lemmas -- n=136 
+lapply(tfms, dim)
 ```
 
-The **English Lexicon Project** (ELP) has aggregated a host of behavioral data & lexical features for a large portion of the English lexicon, which I have included in my R package `lexvarsdatr`. Here, we filter the lemma lexicon from above to only lemmas included in the ELP. Again, this step is not necessary. We do it here simply to focus on the portion of the lexicon most familiar to speakers, and to eliminate any potential funk from the original lexeme-lemma crosswalk.
+    ## $`[1808,1833)`
+    ## [1] 59767 59767
+    ## 
+    ## $`[1833,1858)`
+    ## [1] 72567 72567
+    ## 
+    ## $`[1858,1883)`
+    ## [1] 80140 80140
+    ## 
+    ## $`[1883,1908)`
+    ## [1] 85044 85044
+    ## 
+    ## $`[1908,1933)`
+    ## [1] 81840 81840
+    ## 
+    ## $`[1933,1958)`
+    ## [1] 79384 79384
+    ## 
+    ## $`[1958,1983)`
+    ## [1] 78302 78302
+    ## 
+    ## $`[1983,2008]`
+    ## [1] 75723 75723
 
-``` r
-elp_lexicon <- lexvarsdatr::lvdr_behav_data %>%  
-  filter(!is.na(POS))
+So, each historical TFM is quite large (~75k x 75k), and comprised of a unique set of terms & features.
 
-elp_lemma_lexicon <- subset(lemma_lexicon, 
-                        lemma %in% toupper(elp_lexicon$Word))
-```
-
-Our new (common) lexicon, then, contains ~54k forms and ~22k lemmas. A sample of the lexicon is presented below:
-
-| lemma     | form        |
-|:----------|:------------|
-| ABDUCT    | ABDUCT      |
-| ABDUCT    | ABDUCTED    |
-| ABDUCT    | ABDUCTING   |
-| ABDUCT    | ABDUCTS     |
-| BIG       | BIG         |
-| BIG       | BIGGER      |
-| BIG       | BIGGEST     |
-| INDIGNITY | INDIGNITIES |
-| INDIGNITY | INDIGNITY   |
-| WIN       | WIN         |
-| WIN       | WINNING     |
-| WIN       | WINS        |
-| WIN       | WON         |
-
-------------------------------------------------------------------------
-
-#### 4b Lemmatizing terms and features
-
-Next, we filter terms & features comprising the historical TFMs to forms included in the common lexicon, and then aggregate term-feature co-occurrence frequencies by lemma. The function below performs both tasks.
-
-``` r
-library(Matrix.utils)
-
-lemmatize_matrix <- function (x) {
-  
-  x <- x[,colnames(x) %in% elp_lexicon_lem$form]
-  x <- x[rownames(x) %in% elp_lexicon_lem$form,]
-  
-  cs <- data.frame(form = colnames(x)) %>% 
-    inner_join(elp_lexicon_lem %>% select(-pos))
-  rs <- data.frame(form = rownames(x)) %>% 
-    inner_join(elp_lexicon_lem %>% select(-pos)) 
-  
-  colnames(x) <- cs$lemma  
-  rownames(x) <- rs$lemma
-  
-  y <- t(aggregate.Matrix(x, colnames(x), fun = 'sum')) 
-  aggregate.Matrix(y, colnames(x), fun = 'sum')
-}
-```
-
-Apply function to the list of historical TFMs.
-
-``` r
-tfms_lemmed <- lapply(tfms, lemmatize_matrix)
-```
-
-A small portion of the **lemmatized TFM** for the 1908-1932 sub-corpus is presented below. Again, full data structure is a list of TFMs by quarter.
-
-``` r
-tfms_lemmed[[5]][1:10,1:20]
-```
-
-    ## 10 x 20 sparse Matrix of class "dgCMatrix"
-
-    ##    [[ suppressing 20 column names 'AARON', 'ABACK', 'ABACUS' ... ]]
-
-    ##                                                                       
-    ## AARON       822   .  .     .    .  .  . .    .   . . . . . . . . . . .
-    ## ABACK         . 829  .     .    .  .  . .    .   . . . . . . . . . . .
-    ## ABACUS        .   . 21     .    .  .  . .    .   . . . . . . . . . . .
-    ## ABANDON       .   .  . 15957    .  .  . .    .   . . . . . . . . . . .
-    ## ABANDONMENT   .   .  .     . 3969  .  . .    .   . . . . . . . . . . .
-    ## ABASE         .   .  .     .    . 50  . .    .   . . . . . . . . . . .
-    ## ABASEMENT     .   .  .     .    .  . 39 .    .   . . . . . . . . . . .
-    ## ABASH         .   .  .     .    .  .  . 1    .   . . . . . . . . . . .
-    ## ABATE         .   .  .     .    .  .  . . 1062   . . . . . . . . . . .
-    ## ABBESS        .   .  .     .    .  .  . .    . 110 . . . . . . . . . .
-
-------------------------------------------------------------------------
-
-#### 4c Filtering features based on frequency
-
-At this point, the composition of the matrices is limited to lemmas included in the common lexicon. However, two issues remain:
+However, two issues remain:
 
 -   First, the actual term & feature composition of each matrix is still different. While differing number of terms is not necessarily problematic, we want term embeddings to be comprised of the same features historically.
 
--   Second, our matrices are still comprised of a substantial number of features, even after lemmatization (max ~22k, per composition of commom lexicon), making for super-sparse term vectors.
+-   Second, our matrices are still comprised of a substantial number of features, making for super-sparse term vectors.
 
-To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus. To address the second issue, we limit features to only those that occur within a given frequency range.
-
-Below, we extract lemma frequencies from each quarter-century TFM via matrix diagonals.
+To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus. To address the second issue, we limit features to only those that occur within a given frequency range. Below, we extract form frequencies from each quarter-century TFM via matrix diagonals.
 
 ``` r
 freqs_by_gen <- lapply(1:8, function (x)
-  data.frame(lemma = rownames(tfms_lemmed[[x]]), 
-             freq = diag(tfms_lemmed[[x]]),
-             quarter = rep(names(tfms_lemmed[x]), nrow(tfms_lemmed[[x]])),
+  data.frame(lemma = rownames(tfms[[x]]), 
+             freq = diag(tfms[[x]]),
+             quarter = rep(names(tfms[x]), nrow(tfms[[x]])),
              stringsAsFactors = FALSE) 
   ) %>%
   bind_rows() %>%
@@ -411,7 +339,7 @@ freqs_by_gen <- lapply(1:8, function (x)
   select(-corpus)
 ```
 
-Historical frequencies for a small set of lemmas in the sampled ngram corpus are presented below. Note that these frequencies are very rough, and will likely differ some from numbers obtained from Google's ngram viewer.
+Historical frequencies for a small set of forms in the sampled n-gram corpus are presented below. Note that these frequencies are very rough, and will differ some from numbers obtained directly from Google's n-gram viewer.
 
 ``` r
 freqs_by_gen %>%
@@ -421,15 +349,15 @@ freqs_by_gen %>%
   knitr::kable()
 ```
 
-| lemma       |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
-|:------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
-| PSYCHIATRIC |          0.02|            NA|          0.01|          0.02|          0.48|          4.04|         13.73|          23.12|
-| SLANG       |          0.28|          0.39|          0.69|          1.18|          0.59|          0.35|          0.51|           1.71|
-| ENERVATION  |          0.08|          0.08|            NA|          0.05|          0.01|            NA|            NA|             NA|
-| EXAMINATION |        138.76|        170.53|        196.98|        202.25|        214.38|        198.50|        219.39|         177.35|
-| CALIBER     |          0.12|          0.35|          0.66|          1.00|          1.91|          1.93|          1.45|           1.51|
+| lemma        |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
+|:-------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
+| PRETOR       |            NA|            NA|            NA|          0.06|            NA|            NA|            NA|             NA|
+| SIERPE       |          0.12|          0.12|            NA|            NA|            NA|            NA|            NA|             NA|
+| ENCYCLOPEDIC |            NA|          0.09|          0.04|          0.08|          0.03|          0.16|          0.31|           0.17|
+| EUMENES      |          0.18|          0.12|          0.15|          0.03|          0.02|          0.01|            NA|             NA|
+| BUFFALO      |          1.24|         10.87|          9.93|          7.80|          9.65|          5.86|          7.71|           5.19|
 
-Based on the frequency table above, we create a list of lemmas that occur in every quarter-century; then we filter these lemmas to the 50th to 5,049th most frequent based on median frequencies historically.
+**Filtering features**. Based on the frequency table above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically.
 
 ``` r
 filtered_features <- freqs_by_gen %>%
@@ -442,12 +370,53 @@ filtered_features <- freqs_by_gen %>%
   slice(50:5049) 
 ```
 
+**Filtering terms**.
+
+``` r
+filtered_terms <- freqs_by_gen %>%
+  group_by(lemma, quarter) %>%
+  filter (ppm > 1.5) %>%
+  ungroup() %>%
+  select(quarter, lemma)
+
+filtered_terms <- split(filtered_terms, f = filtered_terms$quarter)
+```
+
 Then we subset features in the set of lemmatized TFMs. The result is 8 new TFMs, *n* x 5,000 in dimension.
 
 ``` r
 tfms_filtered <- lapply(1:8, function (x)
-  tfms_lemmed[[x]][,colnames(tfms_lemmed[[x]]) %in% filtered_features$lemma] )
+  tfms[[x]][rownames(tfms[[x]]) %in% filtered_terms[[x]]$lemma, colnames(tfms[[x]]) %in% filtered_features$lemma] )
+names(tfms_filtered) <- names(tfms)
 ```
+
+``` r
+lapply(tfms_filtered, dim)
+```
+
+    ## $`[1808,1833)`
+    ## [1] 18309  5000
+    ## 
+    ## $`[1833,1858)`
+    ## [1] 18528  5000
+    ## 
+    ## $`[1858,1883)`
+    ## [1] 18895  5000
+    ## 
+    ## $`[1883,1908)`
+    ## [1] 18764  5000
+    ## 
+    ## $`[1908,1933)`
+    ## [1] 17262  5000
+    ## 
+    ## $`[1933,1958)`
+    ## [1] 16846  5000
+    ## 
+    ## $`[1958,1983)`
+    ## [1] 16480  5000
+    ## 
+    ## $`[1983,2008]`
+    ## [1] 16402  5000
 
 ------------------------------------------------------------------------
 
@@ -468,7 +437,7 @@ tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 *Singular value decomposition*
 
 ``` r
-tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 200) 
+tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 250) 
 ```
 
 ------------------------------------------------------------------------
@@ -490,7 +459,9 @@ for (i in 1:8) {
 Using the `neighbors` function from the `LSAfun` package.
 
 ``` r
-x <- lapply(tfms_mats, LSAfun::neighbors, x = toupper('communicate'), n = 100)
+x <- lapply(tfms_mats, LSAfun::neighbors, 
+            x = toupper('communicate'), 
+            n = 100)
 ```
 
 Clean output.
@@ -506,14 +477,13 @@ strip_syns <- function (x) {
     bind_rows() }
 ```
 
-Add frequencies, and filter neighbors ... Frequency filter is super helpful.
+Add frequencies, and filter neighbors
 
 ``` r
 syns <- x %>% strip_syns() %>%
   inner_join(freqs_by_gen) %>%
   mutate(ppm = round(ppm, 1)) %>%
   select(-freq) %>%
-  filter (ppm > 1) %>% #This is super effective -- 
   group_by(quarter) %>%
   arrange( desc(value))%>%
   slice(1:10)%>%
