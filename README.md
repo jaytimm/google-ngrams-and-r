@@ -168,7 +168,7 @@ Per each file/sub-corpus generated above, here we:
 -   flip 5-grams as character string to long format
 -   remove stop words
 
-Per the table above, the 5-gram "BREAK ALL THE TEN COMMANDMENTS" occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
+Per the table above, the 5-gram **BREAK ALL THE TEN COMMANDMENTS** occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
 
 ``` r
 setwd(local_raw)
@@ -287,32 +287,19 @@ tfms[[5]][1:10,1:15]
 At present, our historical TFMs have the following dimensions:
 
 ``` r
-lapply(tfms, dim)
+lapply(tfms, dim) 
 ```
 
-    ## $`[1808,1833)`
-    ## [1] 59767 59767
-    ## 
-    ## $`[1833,1858)`
-    ## [1] 72567 72567
-    ## 
-    ## $`[1858,1883)`
-    ## [1] 80140 80140
-    ## 
-    ## $`[1883,1908)`
-    ## [1] 85044 85044
-    ## 
-    ## $`[1908,1933)`
-    ## [1] 81840 81840
-    ## 
-    ## $`[1933,1958)`
-    ## [1] 79384 79384
-    ## 
-    ## $`[1958,1983)`
-    ## [1] 78302 78302
-    ## 
-    ## $`[1983,2008]`
-    ## [1] 75723 75723
+| quarter       |   term|  feature|
+|:--------------|------:|--------:|
+| \[1808,1833)  |  59767|    59767|
+| \[1833,1858)  |  72567|    72567|
+| \[1858,1883)  |  80140|    80140|
+| \[1883,1908)  |  85044|    85044|
+| \[1908,1933)  |  81840|    81840|
+| \[1933,1958)  |  79384|    79384|
+| \[1958,1983)  |  78302|    78302|
+| \[1983,2008\] |  75723|    75723|
 
 So, each historical TFM is quite large (~75k x 75k), and comprised of a unique set of terms & features.
 
@@ -386,7 +373,8 @@ Then we subset features in the set of lemmatized TFMs. The result is 8 new TFMs,
 
 ``` r
 tfms_filtered <- lapply(1:8, function (x)
-  tfms[[x]][rownames(tfms[[x]]) %in% filtered_terms[[x]]$lemma, colnames(tfms[[x]]) %in% filtered_features$lemma] )
+  tfms[[x]][rownames(tfms[[x]]) %in% filtered_terms[[x]]$lemma,
+            colnames(tfms[[x]]) %in% filtered_features$lemma])
 names(tfms_filtered) <- names(tfms)
 ```
 
@@ -394,29 +382,16 @@ names(tfms_filtered) <- names(tfms)
 lapply(tfms_filtered, dim)
 ```
 
-    ## $`[1808,1833)`
-    ## [1] 18309  5000
-    ## 
-    ## $`[1833,1858)`
-    ## [1] 18528  5000
-    ## 
-    ## $`[1858,1883)`
-    ## [1] 18895  5000
-    ## 
-    ## $`[1883,1908)`
-    ## [1] 18764  5000
-    ## 
-    ## $`[1908,1933)`
-    ## [1] 17262  5000
-    ## 
-    ## $`[1933,1958)`
-    ## [1] 16846  5000
-    ## 
-    ## $`[1958,1983)`
-    ## [1] 16480  5000
-    ## 
-    ## $`[1983,2008]`
-    ## [1] 16402  5000
+| quarter       |   term|  feature|
+|:--------------|------:|--------:|
+| \[1808,1833)  |  18309|     5000|
+| \[1833,1858)  |  18528|     5000|
+| \[1858,1883)  |  18895|     5000|
+| \[1883,1908)  |  18764|     5000|
+| \[1908,1933)  |  17262|     5000|
+| \[1933,1958)  |  16846|     5000|
+| \[1958,1983)  |  16480|     5000|
+| \[1983,2008\] |  16402|     5000|
 
 ------------------------------------------------------------------------
 
@@ -506,7 +481,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-47-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-49-1.png)
 
 ------------------------------------------------------------------------
 
