@@ -190,7 +190,7 @@ grams <- lapply(1:length(gfiles), function (y)
 names(grams) <- file_names  #Store locally.
 ```
 
-The **resulting data structure** is a list of data frames, with each data frame representing a sub-corpus as a bag-of-words (with frequencies aggregated by ngram constituents and quarter-century). A sample portion of this structure is presented below.
+The **resulting data structure** is a list of data frames, with each data frame representing a sub-corpus as a bag-of-words (with frequencies aggregated by n-gram constituents and quarter-century). A sample portion of this structure is presented below.
 
 | ngram       | quarter       |  freq|   id|
 |:------------|:--------------|-----:|----:|
@@ -207,17 +207,19 @@ The next step is to convert our list of randomly assembled sub-corpora into a li
 grams <- grams %>% data.table::rbindlist(idcol = 'corp') 
 setkey(grams, corp, id)
 grams[ , id := .GRP, by = key(grams)]
-grams[, corp := NULL]  #n = 120,920,432
+grams[, corp := NULL]  #nrow = 120,920,432
 ```
 
 ``` r
-summary <- grams[, list(freq = sum(freq), type=length(unique(ngram))), by=quarter] %>% 
+summary <- grams[, list(tokens = sum(freq), 
+                        types = length(unique(ngram))), 
+                 by=quarter] %>% 
   arrange(quarter)
 ```
 
-**Some corpus descriptives**. These are rough estimates. Keep in mind that
+**Some corpus descriptives**. These are rough estimates. Keep in mind that the token count is a bit wierd as it is based on n-grams and, hence, a single instantiation of a form in text will be counted multiple times (as it will occur in multiple n-grams). Presumably relative frequencies wash the effects of multiple counting out (assuming all forms are equally affected).
 
-| quarter       |       freq|   type|
+| quarter       |     tokens|   type|
 |:--------------|----------:|------:|
 | \[1808,1833)  |   66183994|  59767|
 | \[1833,1858)  |  147983804|  72567|
@@ -228,7 +230,7 @@ summary <- grams[, list(freq = sum(freq), type=length(unique(ngram))), by=quarte
 | \[1958,1983)  |  159967871|  78302|
 | \[1983,2008\] |  145837999|  75723|
 
-Then we re-split the corpus into eight sub-corpora, one for each quarter-century.
+Lastly, we **re-split the corpus into eight sub-corpora**, one for each quarter-century.
 
 ``` r
 setorder(grams, quarter, id)
@@ -255,12 +257,12 @@ tfms <- lapply(1:8, function (y)
     .[, order(colnames(.))] %>%
     .[order(rownames(.)), ]
   
-) #543.1Mb
+) #641.9 Mb
 
 names(tfms) <- names(grams)
 ```
 
-A small portion of the TFM for the 1908-1932 sub-corpus is presented below. Full data structure is a list of TFMs by quarter-century.
+A small portion of the TFM for the 1908-1932 sub-corpus is presented below.
 
 ``` r
 library(Matrix)
@@ -280,40 +282,38 @@ tfms[[5]][1:10,1:15]
     ## AASOR       . . .  . .   . . . 1 . . . . . .
     ## AAZAZ       . . .  . .   . . . . 1 . . . . .
 
-------------------------------------------------------------------------
-
-### 4 Filtering historical term-feature matrices
-
-At present, our historical TFMs have the following dimensions:
+**Full data structure** is a list of TFMs by quarter-century, with the following dimensions:
 
 ``` r
 lapply(tfms, dim) 
 ```
 
-| quarter       |   term|  feature|
-|:--------------|------:|--------:|
-| \[1808,1833)  |  59767|    59767|
-| \[1833,1858)  |  72567|    72567|
-| \[1858,1883)  |  80140|    80140|
-| \[1883,1908)  |  85044|    85044|
-| \[1908,1933)  |  81840|    81840|
-| \[1933,1958)  |  79384|    79384|
-| \[1958,1983)  |  78302|    78302|
-| \[1983,2008\] |  75723|    75723|
+| quarter       |  terms|  features|
+|:--------------|------:|---------:|
+| \[1808,1833)  |  59767|     59767|
+| \[1833,1858)  |  72567|     72567|
+| \[1858,1883)  |  80140|     80140|
+| \[1883,1908)  |  85044|     85044|
+| \[1908,1933)  |  81840|     81840|
+| \[1933,1958)  |  79384|     79384|
+| \[1958,1983)  |  78302|     78302|
+| \[1983,2008\] |  75723|     75723|
 
-So, each historical TFM is quite large (~75k x 75k), and comprised of a unique set of terms & features.
+------------------------------------------------------------------------
 
-However, two issues remain:
+### 4 Filtering historical term-feature matrices
 
--   First, the actual term & feature composition of each matrix is still different. While differing number of terms is not necessarily problematic, we want term embeddings to be comprised of the same features historically.
+With historical TFMs in tow, we have two remaining issues:
 
--   Second, our matrices are still comprised of a substantial number of features, making for super-sparse term vectors.
+-   First, feature composition of each matrix is different. While differing number of terms is not necessarily problematic, we want term embeddings to be comprised of the same features historically.
 
-To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus. To address the second issue, we limit features to only those that occur within a given frequency range. Below, we extract form frequencies from each quarter-century TFM via matrix diagonals.
+-   Second, our matrices are quite large, and include terms/features that are super infrequent.
+
+To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus. To address the second issue, we limit terms & features to only those that occur within a given frequency range. Below, we extract form frequencies from each quarter-century TFM via matrix diagonals.
 
 ``` r
 freqs_by_gen <- lapply(1:8, function (x)
-  data.frame(lemma = rownames(tfms[[x]]), 
+  data.frame(form = rownames(tfms[[x]]), 
              freq = diag(tfms[[x]]),
              quarter = rep(names(tfms[x]), nrow(tfms[[x]])),
              stringsAsFactors = FALSE) 
@@ -326,7 +326,7 @@ freqs_by_gen <- lapply(1:8, function (x)
   select(-corpus)
 ```
 
-Historical frequencies for a small set of forms in the sampled n-gram corpus are presented below. Note that these frequencies are very rough, and will differ some from numbers obtained directly from Google's n-gram viewer.
+Historical frequencies for a small set of forms in the sampled n-gram corpus are presented below. Note that these frequencies are very rough, and will differ some from numbers obtained directly from Google's n-gram viewer (per sampling & aggregated time bins).
 
 ``` r
 freqs_by_gen %>%
@@ -336,7 +336,7 @@ freqs_by_gen %>%
   knitr::kable()
 ```
 
-| lemma        |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
+| form         |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
 |:-------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
 | PRETOR       |            NA|            NA|            NA|          0.06|            NA|            NA|            NA|             NA|
 | SIERPE       |          0.12|          0.12|            NA|            NA|            NA|            NA|            NA|             NA|
@@ -348,7 +348,7 @@ freqs_by_gen %>%
 
 ``` r
 filtered_features <- freqs_by_gen %>%
-  group_by(lemma) %>%
+  group_by(form) %>%
   mutate(quarter_count = length(quarter),
          ppm = median(ppm)) %>%
   filter (quarter == "[1983,2008]", quarter_count == 8)%>%
@@ -357,41 +357,43 @@ filtered_features <- freqs_by_gen %>%
   slice(50:5049) 
 ```
 
-**Filtering terms**.
+**Filtering terms**. We are less discerning with term filtering, as they are the point of interest. Below we limit terms to those with frequencies greater than 1.5 ppm for a given quarter-century. This number will vary by time point.
 
 ``` r
 filtered_terms <- freqs_by_gen %>%
-  group_by(lemma, quarter) %>%
+  group_by(form, quarter) %>%
   filter (ppm > 1.5) %>%
   ungroup() %>%
-  select(quarter, lemma)
+  select(quarter, form)
 
 filtered_terms <- split(filtered_terms, f = filtered_terms$quarter)
 ```
 
-Then we subset features in the set of lemmatized TFMs. The result is 8 new TFMs, *n* x 5,000 in dimension.
+**Apply filters to historical TFMs**:
 
 ``` r
 tfms_filtered <- lapply(1:8, function (x)
-  tfms[[x]][rownames(tfms[[x]]) %in% filtered_terms[[x]]$lemma,
-            colnames(tfms[[x]]) %in% filtered_features$lemma])
+  tfms[[x]][rownames(tfms[[x]]) %in% filtered_terms[[x]]$form,
+            colnames(tfms[[x]]) %in% filtered_features$form])
 names(tfms_filtered) <- names(tfms)
 ```
+
+Dimensions of our new matrices are presented below. The decrease of terms (ppm &gt; 1.5) historically is ~likely a product of the diversification of published texts (included in the Google n-gram data sets) over time and, hence, a more diverse lexicon with individual lexical items occurring less frequently (at least in an unweighted historical sample).
 
 ``` r
 lapply(tfms_filtered, dim)
 ```
 
-| quarter       |   term|  feature|
-|:--------------|------:|--------:|
-| \[1808,1833)  |  18309|     5000|
-| \[1833,1858)  |  18528|     5000|
-| \[1858,1883)  |  18895|     5000|
-| \[1883,1908)  |  18764|     5000|
-| \[1908,1933)  |  17262|     5000|
-| \[1933,1958)  |  16846|     5000|
-| \[1958,1983)  |  16480|     5000|
-| \[1983,2008\] |  16402|     5000|
+| quarter       |  terms|  features|
+|:--------------|------:|---------:|
+| \[1808,1833)  |  18309|      5000|
+| \[1833,1858)  |  18528|      5000|
+| \[1858,1883)  |  18895|      5000|
+| \[1883,1908)  |  18764|      5000|
+| \[1908,1933)  |  17262|      5000|
+| \[1933,1958)  |  16846|      5000|
+| \[1958,1983)  |  16480|      5000|
+| \[1983,2008\] |  16402|      5000|
 
 ------------------------------------------------------------------------
 
@@ -415,11 +417,7 @@ tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 250) 
 ```
 
-------------------------------------------------------------------------
-
-### 6 Exploring synonymny historically
-
-Simple matrix.
+Extract .. from SVD object. Simple matrix.
 
 ``` r
 tfms_mats <- list()
@@ -431,12 +429,16 @@ for (i in 1:8) {
 }
 ```
 
+------------------------------------------------------------------------
+
+### 6 Exploring synonymny historically
+
 Using the `neighbors` function from the `LSAfun` package.
 
 ``` r
 x <- lapply(tfms_mats, LSAfun::neighbors, 
             x = toupper('communicate'), 
-            n = 100)
+            n = 10)
 ```
 
 Clean output.
@@ -446,7 +448,7 @@ strip_syns <- function (x) {
   lapply(1:length(x), function(y)  
     x[[y]] %>%
     as.tibble %>% 
-    rownames_to_column(var = 'lemma') %>%
+    rownames_to_column(var = 'form') %>%
     mutate (quarter = names(x[y]),
             value = round(value,2))) %>%
     bind_rows() }
@@ -460,8 +462,7 @@ syns <- x %>% strip_syns() %>%
   mutate(ppm = round(ppm, 1)) %>%
   select(-freq) %>%
   group_by(quarter) %>%
-  arrange( desc(value))%>%
-  slice(1:10)%>%
+  arrange(desc(value))%>%
   ungroup()
 ```
 
@@ -474,7 +475,7 @@ tt <- gridExtra::ttheme_default(base_size = 7)
 for (i in 1:length(tfms_mats)) {
   g[[i]] <- syns %>% 
     filter (quarter == names(tfms_mats[i])) %>%
-    rename(!!names(tfms_mats[i]) := lemma) %>% 
+    rename(!!names(tfms_mats[i]) := form) %>% 
     select(-quarter)%>%
     gridExtra::tableGrob(rows=NULL, theme = tt) }
 
