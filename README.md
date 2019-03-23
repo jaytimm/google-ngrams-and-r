@@ -3,6 +3,7 @@ Google n-gram data & R: some methods
 
 An R-based guide to accessing/sampling Google n-gram data & building historical term-feature matrices for investigating lexical semantic change historically.
 
+-   [0 The English One Million corpus](#0-The-English-One_Million-corpus)
 -   [1 Download-Sample-Aggregate](#1-Download-Sample-Aggregate)
 -   [2 Restructuring corpus](#2-Restructuring-corpus)
 -   [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
@@ -23,7 +24,7 @@ Google n-gram data are a bit weird as a text structure. As such, many existing t
 
 ------------------------------------------------------------------------
 
-### 1 Download-Sample-Aggregate
+### 0 The English One Million corpus
 
 Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words. **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
 
@@ -31,6 +32,42 @@ Google has a host of corpora -- here we work with the corpus dubbed the **Englis
 library(tidyverse)
 library(data.table)
 ```
+
+Here, we summarise corpus token composition by quarter-century for the most recent 200 years of text included in the corpus.
+
+``` r
+weights <- read.csv(url('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt'), 
+                    sep = '\t', 
+                    header = FALSE, 
+                    skip = 1) %>%
+  select(V1,V2) %>%
+  rename(yop = V1, tokens = V2) %>%
+  filter(yop >=1808 & yop <= 2008)
+
+weights$quarter <- cut(weights$yop, seq(1808, 2008, 25), 
+              right=FALSE,
+              include.lowest = TRUE,
+              dig.lab = 4) 
+
+weights <- weights %>% 
+  group_by(quarter) %>%
+  summarise(tokens = sum(as.numeric(tokens))) %>%
+  ungroup() %>%
+  mutate(prop_tokens = round(tokens / sum(tokens),3))
+```
+
+| quarter       |       tokens|  prop\_tokens|
+|:--------------|------------:|-------------:|
+| \[1808,1833)  |   4480534918|         0.041|
+| \[1833,1858)  |   9878122399|         0.090|
+| \[1858,1883)  |  12841359542|         0.117|
+| \[1883,1908)  |  17288373482|         0.157|
+| \[1908,1933)  |  15101571498|         0.137|
+| \[1933,1958)  |  16228180585|         0.147|
+| \[1958,1983)  |  16127053472|         0.146|
+| \[1983,2008\] |  18152970019|         0.165|
+
+### 1 Download-Sample-Aggregate
 
 To start the sampling process, we build two simple functions. The **first function** downloads & unzips a single file of the corpus to a temporary folder.
 
@@ -156,41 +193,6 @@ for (i in 1:length(file_names)) {
 ```
 
 ------------------------------------------------------------------------
-
-### 2 Sampling weights
-
-``` r
-weights <- read.csv(url('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt'), sep = '\t', header = FALSE, skip = 1) %>%
-  select(V1,V2) %>%
-  rename(yop = V1, tokens = V2) %>%
-  filter(yop >=1808 & yop <= 2008)
-
-weights$quarter <- cut(weights$yop, seq(1808, 2008, 25), 
-              right=FALSE,
-              include.lowest = TRUE,
-              dig.lab = 4) 
-
-weights <- weights %>% 
-  group_by(quarter) %>%
-  summarise(tokens = sum(as.numeric(tokens))) %>%
-  ungroup() %>%
-  mutate(prop_tokens = tokens / sum(tokens))
-```
-
-``` r
-weights %>% knitr::kable()
-```
-
-| quarter       |       tokens|  prop\_tokens|
-|:--------------|------------:|-------------:|
-| \[1808,1833)  |   4480534918|     0.0406958|
-| \[1833,1858)  |   9878122399|     0.0897210|
-| \[1858,1883)  |  12841359542|     0.1166355|
-| \[1883,1908)  |  17288373482|     0.1570269|
-| \[1908,1933)  |  15101571498|     0.1371646|
-| \[1933,1958)  |  16228180585|     0.1473974|
-| \[1958,1983)  |  16127053472|     0.1464789|
-| \[1983,2008\] |  18152970019|     0.1648799|
 
 ### 2 Restructuring corpus
 
@@ -330,10 +332,6 @@ tfms[[5]][1:10,1:15]
 
 **Full data structure** is a list of TFMs by quarter-century, with the following dimensions:
 
-``` r
-lapply(tfms, dim) 
-```
-
 | quarter       |  terms|  features|
 |:--------------|------:|---------:|
 | \[1808,1833)  |  50609|     50609|
@@ -425,10 +423,6 @@ names(tfms_filtered) <- names(tfms)
 ```
 
 **Dimension details** for our new matrices are presented below.
-
-``` r
-lapply(tfms_filtered, dim)
-```
 
 | quarter       |  terms|  features|
 |:--------------|------:|---------:|
