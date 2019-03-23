@@ -11,11 +11,11 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [6 Exploring synonymny historically](#6-Exploring-synonymny-historically)
 -   [7 Summary](#7-Summary)
 
-This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smarter aproach to working with n-gram data in its entriety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
+This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smaller data (ie, poor man's) approach to handling big data. A smarter aproach to working with n-gram data in its entriety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
 
 Google n-gram data are a bit weird as a text structure. As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.
 
-**ENDGAME:** Finding historical synonyms (-ish). The tables below summarize nearest neighbors for the word *GRASP* over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
+**ENDGAME:** Finding historical synonyms. The tables below summarize nearest neighbors for the word *GRASP* over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
 
 <br>
 
@@ -157,6 +157,24 @@ for (i in 1:length(file_names)) {
 
 ------------------------------------------------------------------------
 
+``` r
+weights <- read.csv(url('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt'), sep = '\t', header = FALSE, skip = 1) %>%
+  select(V1,V2) %>%
+  rename(yop = V1, tokens = V2) %>%
+  filter(yop >=1808 & yop <= 2008)
+
+weights$quarter <- cut(weights$yop, seq(1808, 2008, 25), 
+              right=FALSE,
+              include.lowest = TRUE,
+              dig.lab = 4) 
+
+weights <- weights %>% 
+  group_by(quarter) %>%
+  summarise(tokens = sum(as.numeric(tokens))) %>%
+  ungroup() %>%
+  mutate(prop = tokens / sum(tokens))
+```
+
 ### 2 Restructuring corpus
 
 At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurence matrices, the next step is to restructure the 5-gram data some.
@@ -177,18 +195,28 @@ gfiles <- list.files(path=local_raw,
                      recursive=TRUE) 
 
 grams <- lapply(1:length(gfiles), function (y)
-  data.table::fread(gfiles[y])%>% 
-    #filter(!quarter %in% c("[1808,1833)", "[1833,1858)")) %>%
-    sample_n(75000) %>%
-    rename(ngram = five_gram) %>%
-    mutate(id = as.integer(row_number())) %>%
-    separate_rows (ngram, sep = ' ') %>% #Make ngram long
-    filter(!ngram %in% toupper(corpuslingr::clr_ref_stops))%>% #Remove stop words
-    as.data.table()
+  #Sample per jennybc
+  data.table::fread(gfiles[y])%>%
+  arrange(quarter) %>%
+  group_by(quarter) %>% 
+  nest() %>%            
+  mutate(n = round(75000* weights$prop,0)) %>% 
+  mutate(samp = map2(data, n, sample_n)) %>% 
+  select(quarter, samp) %>%
+  unnest()%>%
+  
+  #Restructure
+  rename(ngram = five_gram) %>%
+  mutate(id = as.integer(row_number())) %>%
+  separate_rows (ngram, sep = ' ') %>% #Make ngram long
+  filter(!ngram %in% toupper(corpuslingr::clr_ref_stops))%>% #Remove stop words
+  as.data.table()
 )
 
-names(grams) <- file_names  #Store locally.
+names(grams) <- file_names
 ```
+
+[here](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html)
 
 The **resulting data structure** is a list of data frames, with each data frame representing a sub-corpus as a bag-of-words (with frequencies aggregated by n-gram constituents and quarter-century). A sample portion of this structure is presented below.
 
@@ -201,7 +229,7 @@ The **resulting data structure** is a list of data frames, with each data frame 
 | OPPOSED     | \[1883,1908)  |     2|    2|
 | NEW         | \[1983,2008\] |     1|    3|
 
-The next step is to convert our list of randomly assembled sub-corpora into a list of generation-based sub-corpora. So, we first collapse our list of sub-corpora into a single corpus, and uniquely identify each 5-gram.
+The next step is to convert our list of randomly assembled sub-corpora into a list of **generation-based** sub-corpora. So, we first collapse our list of sub-corpora into a single corpus, and uniquely identify each 5-gram.
 
 ``` r
 grams <- grams %>% data.table::rbindlist(idcol = 'corp') 
@@ -212,23 +240,24 @@ grams[, corp := NULL]  #nrow = 120,920,432
 
 ``` r
 summary <- grams[, list(tokens = sum(freq), 
-                        types = length(unique(ngram))), 
+                        types = length(unique(ngram)),
+                        ngrams = length(unique(id))), 
                  by=quarter] %>% 
   arrange(quarter)
 ```
 
 **Some corpus descriptives**. These are rough estimates. Keep in mind that the token count is a bit wierd as it is based on n-grams and, hence, a single instantiation of a form in text will be counted multiple times (as it will occur in multiple n-grams). Presumably relative frequencies wash the effects of multiple counting out (assuming all forms are equally affected).
 
-| quarter       |     tokens|   type|
-|:--------------|----------:|------:|
-| \[1808,1833)  |   66183994|  59767|
-| \[1833,1858)  |  147983804|  72567|
-| \[1858,1883)  |  184728372|  80140|
-| \[1883,1908)  |  238699208|  85044|
-| \[1908,1933)  |  190794906|  81840|
-| \[1933,1958)  |  184923418|  79384|
-| \[1958,1983)  |  159967871|  78302|
-| \[1983,2008\] |  145837999|  75723|
+| quarter       |     tokens|  types|   ngrams|  prop\_tokens|  prop\_ngrams|
+|:--------------|----------:|------:|--------:|-------------:|-------------:|
+| \[1808,1833)  |   37383071|  50609|  2407235|         0.028|         0.041|
+| \[1833,1858)  |  118606799|  67794|  5314405|         0.089|         0.090|
+| \[1858,1883)  |  162203730|  77019|  6911847|         0.122|         0.117|
+| \[1883,1908)  |  254298403|  86591|  9308212|         0.192|         0.157|
+| \[1908,1933)  |  183793294|  80850|  8129058|         0.139|         0.137|
+| \[1933,1958)  |  199018814|  81235|  8733809|         0.150|         0.147|
+| \[1958,1983)  |  176878087|  80539|  8677454|         0.133|         0.146|
+| \[1983,2008\] |  194605143|  82249|  9762528|         0.147|         0.165|
 
 Lastly, we **re-split the corpus into eight sub-corpora**, one for each quarter-century.
 
@@ -257,7 +286,7 @@ tfms <- lapply(1:8, function (y)
     .[, order(colnames(.))] %>%
     .[order(rownames(.)), ]
   
-) #641.9 Mb
+) #632.2 Mb
 
 names(tfms) <- names(grams)
 ```
@@ -271,16 +300,16 @@ tfms[[5]][1:10,1:15]
 
     ## 10 x 15 sparse Matrix of class "dgCMatrix"
     ##                                             
-    ## AA        153 . .  . .   . . . . . . . . . .
-    ## AALAND      . 4 .  . .   . . . . . . . . . .
-    ## AAN         . . 5  . .   . . . . . . . . . .
-    ## AAR         . . . 31 .   . . . . . . . . . .
-    ## AARNE       . . .  . 1   . . . . . . . . . .
-    ## AARON       . . .  . . 822 . . . . . . . . .
-    ## AARONIC     . . .  . .   . 1 . . . . . . . .
-    ## AARONSOHN   . . .  . .   . . 1 . . . . . . .
-    ## AASOR       . . .  . .   . . . 1 . . . . . .
-    ## AAZAZ       . . .  . .   . . . . 1 . . . . .
+    ## AA    100 . . .  .   . .    . .  . . . . . .
+    ## AAA     . 1 . .  .   . .    . .  . . . . . .
+    ## AAAS    . . 1 .  .   . .    . .  . . . . . .
+    ## AAE     . . . 2  .   . .    . .  . . . . . .
+    ## AAR     . . . . 43   . .    . .  . . . . . .
+    ## AARON   . . . .  . 737 .    . .  . . . . . .
+    ## AASI    . . . .  .   . 1    . .  . . . . . .
+    ## AB      . . . .  .   . . 2406 .  . . . . . .
+    ## ABABA   . . . .  .   . .    . 3  . . . . . .
+    ## ABACI   . . . .  .   . .    . . 46 . . . . .
 
 **Full data structure** is a list of TFMs by quarter-century, with the following dimensions:
 
@@ -290,14 +319,14 @@ lapply(tfms, dim)
 
 | quarter       |  terms|  features|
 |:--------------|------:|---------:|
-| \[1808,1833)  |  59767|     59767|
-| \[1833,1858)  |  72567|     72567|
-| \[1858,1883)  |  80140|     80140|
-| \[1883,1908)  |  85044|     85044|
-| \[1908,1933)  |  81840|     81840|
-| \[1933,1958)  |  79384|     79384|
-| \[1958,1983)  |  78302|     78302|
-| \[1983,2008\] |  75723|     75723|
+| \[1808,1833)  |  50609|     50609|
+| \[1833,1858)  |  67794|     67794|
+| \[1858,1883)  |  77019|     77019|
+| \[1883,1908)  |  86591|     86591|
+| \[1908,1933)  |  80850|     80850|
+| \[1933,1958)  |  81235|     81235|
+| \[1958,1983)  |  80539|     80539|
+| \[1983,2008\] |  82249|     82249|
 
 ------------------------------------------------------------------------
 
@@ -326,7 +355,7 @@ freqs_by_gen <- lapply(1:8, function (x)
   select(-corpus)
 ```
 
-Historical frequencies for a small set of forms in the sampled n-gram corpus are presented below. Note that these frequencies are very rough, and will differ some from numbers obtained directly from Google's n-gram viewer (per sampling & aggregated time bins).
+**Historical frequencies** for a small set of forms in the sampled n-gram corpus are presented below. Note that these frequencies are very rough, and will differ some from numbers obtained directly from Google's n-gram viewer (per sampling procedure & aggregated time bins).
 
 ``` r
 freqs_by_gen %>%
@@ -336,15 +365,15 @@ freqs_by_gen %>%
   knitr::kable()
 ```
 
-| form         |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
-|:-------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
-| PRETOR       |            NA|            NA|            NA|          0.06|            NA|            NA|            NA|             NA|
-| SIERPE       |          0.12|          0.12|            NA|            NA|            NA|            NA|            NA|             NA|
-| ENCYCLOPEDIC |            NA|          0.09|          0.04|          0.08|          0.03|          0.16|          0.31|           0.17|
-| EUMENES      |          0.18|          0.12|          0.15|          0.03|          0.02|          0.01|            NA|             NA|
-| BUFFALO      |          1.24|         10.87|          9.93|          7.80|          9.65|          5.86|          7.71|           5.19|
+| form          |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
+|:--------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
+| PRESTONPANS   |          0.24|          0.13|          0.07|          0.02|          0.10|          0.05|          0.02|           0.06|
+| SIDEBANDS     |            NA|            NA|            NA|            NA|            NA|            NA|          0.25|             NA|
+| ENCLOSES      |          0.11|          0.20|          0.30|          0.20|          0.34|          0.17|          0.28|           0.15|
+| ETYMOLOGISCHE |            NA|            NA|            NA|            NA|            NA|          0.02|            NA|             NA|
+| BUDDINGS      |            NA|            NA|          0.01|            NA|            NA|            NA|            NA|           0.01|
 
-**Filtering features**. Based on the frequency table above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically.
+<br> **Filtering features**. Based on the frequency table above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically.
 
 ``` r
 filtered_features <- freqs_by_gen %>%
@@ -378,7 +407,7 @@ tfms_filtered <- lapply(1:8, function (x)
 names(tfms_filtered) <- names(tfms)
 ```
 
-Dimensions of our new matrices are presented below. The decrease of terms (ppm &gt; 1.5) historically is ~likely a product of the diversification of published texts (included in the Google n-gram data sets) over time and, hence, a more diverse lexicon with individual lexical items occurring less frequently (at least in an unweighted historical sample).
+**Dimension details** for our new matrices are presented below.
 
 ``` r
 lapply(tfms_filtered, dim)
@@ -386,20 +415,18 @@ lapply(tfms_filtered, dim)
 
 | quarter       |  terms|  features|
 |:--------------|------:|---------:|
-| \[1808,1833)  |  18309|      5000|
-| \[1833,1858)  |  18528|      5000|
-| \[1858,1883)  |  18895|      5000|
-| \[1883,1908)  |  18764|      5000|
-| \[1908,1933)  |  17262|      5000|
-| \[1933,1958)  |  16846|      5000|
-| \[1958,1983)  |  16480|      5000|
-| \[1983,2008\] |  16402|      5000|
+| \[1808,1833)  |  18186|      5000|
+| \[1833,1858)  |  18495|      5000|
+| \[1858,1883)  |  18878|      5000|
+| \[1883,1908)  |  18748|      5000|
+| \[1908,1933)  |  17215|      5000|
+| \[1933,1958)  |  16838|      5000|
+| \[1958,1983)  |  16492|      5000|
+| \[1983,2008\] |  16354|      5000|
 
 ------------------------------------------------------------------------
 
 ### 5 PPMI and SVD
-
-Whether or not some or all of the compression steps presented above, ...
 
 *Positive Pointwise Mutual Information* (PPMI)
 
@@ -482,7 +509,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-49-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-50-1.png)
 
 ------------------------------------------------------------------------
 
