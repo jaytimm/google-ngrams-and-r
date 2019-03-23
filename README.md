@@ -157,6 +157,8 @@ for (i in 1:length(file_names)) {
 
 ------------------------------------------------------------------------
 
+### 2 Sampling weights
+
 ``` r
 weights <- read.csv(url('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt'), sep = '\t', header = FALSE, skip = 1) %>%
   select(V1,V2) %>%
@@ -172,8 +174,23 @@ weights <- weights %>%
   group_by(quarter) %>%
   summarise(tokens = sum(as.numeric(tokens))) %>%
   ungroup() %>%
-  mutate(prop = tokens / sum(tokens))
+  mutate(prop_tokens = tokens / sum(tokens))
 ```
+
+``` r
+weights %>% knitr::kable()
+```
+
+| quarter       |       tokens|  prop\_tokens|
+|:--------------|------------:|-------------:|
+| \[1808,1833)  |   4480534918|     0.0406958|
+| \[1833,1858)  |   9878122399|     0.0897210|
+| \[1858,1883)  |  12841359542|     0.1166355|
+| \[1883,1908)  |  17288373482|     0.1570269|
+| \[1908,1933)  |  15101571498|     0.1371646|
+| \[1933,1958)  |  16228180585|     0.1473974|
+| \[1958,1983)  |  16127053472|     0.1464789|
+| \[1983,2008\] |  18152970019|     0.1648799|
 
 ### 2 Restructuring corpus
 
@@ -509,7 +526,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-50-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-51-1.png)
 
 ------------------------------------------------------------------------
 
