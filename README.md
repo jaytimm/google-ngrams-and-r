@@ -33,10 +33,11 @@ library(tidyverse)
 library(data.table)
 ```
 
-Here, we summarise corpus token composition by quarter-century for the most recent 200 years of text included in the corpus.
+Here, we summarise **corpus token composition** by quarter-century for the most recent 200 years of text included in the corpus.
 
 ``` r
-weights <- read.csv(url('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt'), 
+weights <- read.csv(
+  url('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt'), 
                     sep = '\t', 
                     header = FALSE, 
                     skip = 1) %>%
@@ -148,7 +149,7 @@ sample_ngram <- function (x,
 }
 ```
 
-The table below presents a random portion of the sampled/aggregated output:
+The table below presents a random portion of the sampled/aggregated output. (n-grams out of context are always perfect little poems.)
 
 ``` r
 unzipped_eg %>%
@@ -200,12 +201,14 @@ At this point, we have successfully stolen a very small portion of the 5-gram co
 
 Per each file/sub-corpus generated above, here we:
 
--   sample 5-grams again
+-   take a weighted sample 5-grams
 -   uniquely id 5-grams
 -   flip 5-grams as character string to long format
 -   remove stop words
 
 Per the table above, the 5-gram **BREAK ALL THE TEN COMMANDMENTS** occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
+
+Note that sampling here is weighted based on the overall quarter-century composition of the English One Million corpus. This is n-gram based, and not n-gram/frequency based. Sampling procedure was stolen from this [lovely post](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html).
 
 ``` r
 setwd(local_raw)
@@ -235,8 +238,6 @@ grams <- lapply(1:length(gfiles), function (y)
 names(grams) <- file_names
 ```
 
-[here](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html)
-
 The **resulting data structure** is a list of data frames, with each data frame representing a sub-corpus as a bag-of-words (with frequencies aggregated by n-gram constituents and quarter-century). A sample portion of this structure is presented below.
 
 | ngram       | quarter       |  freq|   id|
@@ -265,7 +266,7 @@ summary <- grams[, list(tokens = sum(freq),
   arrange(quarter)
 ```
 
-**Some corpus descriptives**. These are rough estimates. Keep in mind that the token count is a bit wierd as it is based on n-grams and, hence, a single instantiation of a form in text will be counted multiple times (as it will occur in multiple n-grams). Presumably relative frequencies wash the effects of multiple counting out (assuming all forms are equally affected).
+While we are here, **some corpus descriptives**. These are rough estimates. Keep in mind that the token count is a bit wierd as it is based on n-grams and, hence, a single instantiation of a form in text will be counted multiple times (as it will occur in multiple n-grams). Presumably relative frequencies wash the effects of multiple counting out (assuming all forms are equally affected).
 
 | quarter       |     tokens|  types|   ngrams|  prop\_tokens|  prop\_ngrams|
 |:--------------|----------:|------:|--------:|-------------:|-------------:|
@@ -310,7 +311,7 @@ tfms <- lapply(1:8, function (y)
 names(tfms) <- names(grams)
 ```
 
-A small portion of the TFM for the 1908-1932 sub-corpus is presented below.
+A small portion of the TFM for the **1908-1932** sub-corpus is presented below.
 
 ``` r
 library(Matrix)
@@ -439,23 +440,25 @@ names(tfms_filtered) <- names(tfms)
 
 ### 5 PPMI and SVD
 
-*Positive Pointwise Mutual Information* (PPMI)
+So, a couple of final steps.
 
-The function below calculates PPMI values on sparse matrices, which has been slightly modified from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r).
+-   Convert our frequency-based co-occurrence matrices to *positive pointwise mutual information* (PPMI) matrices.
 
-Apply function to the list of quarter-century sparse matrices. Here we use the lemmatized/feature-filtered list, although rawer renditions can be used as well.
+-   Reduce/compress features to latent dimensions via *singular value decomposition* (SVD).
+
+The function below calculates PPMI values for sparse matrices, which has been slightly modified from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
 
 ``` r
 tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 ```
 
-*Singular value decomposition*
+Based on these new PPMI historical TFMs, we reduce/compress our matrices comprised of 5k features to 250 latent dimensions via the `irlba` package.
 
 ``` r
 tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 250) 
 ```
 
-Extract .. from SVD object. Simple matrix.
+Lastly, we extract the approximate left singular values from the SVD object for each TFM as a simple matrix.
 
 ``` r
 tfms_mats <- list()
@@ -470,6 +473,8 @@ for (i in 1:8) {
 ------------------------------------------------------------------------
 
 ### 6 Exploring synonymny historically
+
+Finally, we can look at some ....
 
 Using the `neighbors` function from the `LSAfun` package.
 
