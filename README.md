@@ -149,7 +149,7 @@ sample_ngram <- function (x,
 }
 ```
 
-The table below presents a random portion of the sampled/aggregated output. (n-grams out of context are always perfect little poems.)
+**The table below** presents a random portion of the sampled/aggregated output. (n-grams out of context are always perfect little poems.)
 
 ``` r
 unzipped_eg %>%
@@ -208,7 +208,7 @@ Per each file/sub-corpus generated above, here we:
 
 Per the table above, the 5-gram **BREAK ALL THE TEN COMMANDMENTS** occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
 
-Note that sampling here is weighted based on the overall quarter-century composition of the English One Million corpus. This is n-gram based, and not n-gram/frequency based. Sampling procedure was stolen from this [lovely post](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html).
+Note that sampling here is **weighted** based on the overall quarter-century composition of the English One Million corpus. This is n-gram based, and not n-gram/frequency based. Sampling procedure was stolen from this [lovely post](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html).
 
 ``` r
 setwd(local_raw)
@@ -446,19 +446,19 @@ So, a couple of final steps.
 
 -   Reduce/compress features to latent dimensions via *singular value decomposition* (SVD).
 
-The function below calculates PPMI values for sparse matrices, which has been slightly modified from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
+The function below **calculates PPMI values** for sparse matrices, which has been slightly modified from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
 
 ``` r
 tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 ```
 
-Based on these new PPMI historical TFMs, we reduce/compress our matrices comprised of 5k features to 250 latent dimensions via the `irlba` package.
+Based on these new PPMI historical TFMs, we reduce/compress our matrices comprised of 5k features to **250 latent dimensions** via the `irlba` package.
 
 ``` r
 tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 250) 
 ```
 
-Lastly, we extract the approximate left singular values from the SVD object for each TFM as a simple matrix.
+Lastly, we extract the **approximate left singular values** from the SVD object for each TFM as a simple matrix.
 
 ``` r
 tfms_mats <- list()
@@ -474,9 +474,7 @@ for (i in 1:8) {
 
 ### 6 Exploring synonymny historically
 
-Finally, we can look at some ....
-
-Using the `neighbors` function from the `LSAfun` package.
+Finally, we are cooking with gas. Using the `neighbors` function from the `LSAfun` package.
 
 ``` r
 x <- lapply(tfms_mats, LSAfun::neighbors, 
