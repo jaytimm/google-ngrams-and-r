@@ -1,5 +1,5 @@
-Google n-gram data & R: some methods
-------------------------------------
+Google n-gram data & R: some methods & hacks
+--------------------------------------------
 
 An R-based guide to accessing/sampling Google n-gram data & building historical term-feature matrices for investigating lexical semantic change historically.
 
@@ -9,14 +9,15 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
 -   [4 Filtering historical term-feature matrices](#4-Filtering-historical-term-feature-matrices)
 -   [5 PPMI and SVD](#5-PPMI-and-SVD)
--   [6 Exploring synonymny historically](#6-Exploring-synonymny-historically)
--   [7 Summary](#7-Summary)
+-   [6 Exploring collocates historically](#6-Exploring-collocates-historically)
+-   [7 Exploring synonymny historically](#7-Exploring-synonymny-historically)
+-   [8 Summary](#8-Summary)
 
-This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smaller data (ie, poor man's) approach to handling big data. A smarter aproach to working with n-gram data in its entriety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
+This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smaller data (ie, poor man's) approach to handling big data. A smarter aproach to working with n-gram data in its entirety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
 
 Google n-gram data are a bit weird as a text structure. As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.
 
-**ENDGAME:** Finding historical synonyms. The tables below summarize nearest neighbors for the word *GRASP* over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
+**ENDGAME:** Finding historical synonyms. The tables below summarize nearest neighbors for the word **GRASP** over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
 
 <br>
 
@@ -67,6 +68,8 @@ weights <- weights %>%
 | \[1933,1958)  |  16228180585|         0.147|
 | \[1958,1983)  |  16127053472|         0.146|
 | \[1983,2008\] |  18152970019|         0.165|
+
+------------------------------------------------------------------------
 
 ### 1 Download-Sample-Aggregate
 
@@ -206,7 +209,7 @@ Per each file/sub-corpus generated above, here we:
 -   flip 5-grams as character string to long format
 -   remove stop words
 
-Per the table above, the 5-gram **BREAK ALL THE TEN COMMANDMENTS** occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
+Per the table above, the 5-gram **BREAK ALL THE TEN COMMANDMENTS** (!) occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
 
 Note that sampling here is **weighted** based on the overall quarter-century composition of the English One Million corpus. This is n-gram based, and not n-gram/frequency based. Sampling procedure was stolen from this [lovely post](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html).
 
@@ -444,7 +447,7 @@ So, a couple of final steps.
 
 -   Convert our frequency-based co-occurrence matrices to *positive pointwise mutual information* (PPMI) matrices.
 
--   Reduce/compress features to latent dimensions via *singular value decomposition* (SVD).
+-   Compress features to latent dimensions via *singular value decomposition* (SVD).
 
 The function below **calculates PPMI values** for sparse matrices, which has been slightly modified from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
 
@@ -452,7 +455,7 @@ The function below **calculates PPMI values** for sparse matrices, which has bee
 tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 ```
 
-Based on these new PPMI historical TFMs, we reduce/compress our matrices comprised of 5k features to **250 latent dimensions** via the `irlba` package.
+Based on these new PPMI historical TFMs, we compress our matrices comprised of 5k features to **250 latent dimensions** via the `irlba` package.
 
 ``` r
 tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 250) 
@@ -470,9 +473,13 @@ for (i in 1:8) {
 }
 ```
 
+Importantly, each data structure has independent utility.
+
 ------------------------------------------------------------------------
 
-### 6 Exploring synonymny historically
+### 6 Exploring collocates historically
+
+### 7 Exploring synonymny historically
 
 Finally, we are cooking with gas. Using the `neighbors` function from the `LSAfun` package.
 
@@ -527,7 +534,7 @@ gridExtra::grid.arrange(grobs = g, nrow = 2)
 
 ------------------------------------------------------------------------
 
-### 7 Summary
+### 8 Summary
 
 While academic linguists (of the functional/cognitive/usage-based varieties) are often critical of Google n-gram data, it is still an incredible cultural resource.
 
