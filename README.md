@@ -479,6 +479,47 @@ Importantly, each data structure has independent utility.
 
 ### 6 Exploring collocates historically
 
+``` r
+search1 <- search <- c('GRASP', 'COMPREHEND', 'APPRECIATE ') #'DIFFUSE', 
+```
+
+``` r
+net1 <- lapply (tfms_ppmi, lexvarsdatr::lvdr_extract_network, 
+              search = search1, 
+              tf_min = 3.5,
+              ff_min = 2) 
+```
+
+``` r
+g <- list(length(net1))
+set.seed(999)
+for (i in 1:length(net1)) {
+  g[[i]] <- net1[[i]] %>%
+    tidygraph::as_tbl_graph() %>%
+      ggraph::ggraph() +
+      ggraph::geom_edge_link(color = 'darkgray') + #alpha = 0.8
+      ggraph::geom_node_point(aes(size = value, 
+                                  color = search_term,
+                                  shape =group)) +
+      ggraph::geom_node_text(aes(label = label, 
+                                 filter = group == 'term'), 
+                             repel = TRUE, size = 2.35)+
+      ggthemes::scale_color_stata()+
+      ggthemes::theme_fivethirtyeight() +
+      ggtitle(names(net1[i]))+
+      theme(legend.position = "none",
+            plot.title = element_text(size=11),
+            axis.text.x = element_blank(),
+            axis.text.y = element_blank())
+}
+
+gridExtra::grid.arrange(grobs = g, nrow = 3)
+```
+
+![](README_files/figure-markdown_github/unnamed-chunk-50-1.png)
+
+------------------------------------------------------------------------
+
 ### 7 Exploring synonymny historically
 
 Finally, we are cooking with gas. Using the `neighbors` function from the `LSAfun` package.
@@ -530,7 +571,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-51-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-55-1.png)
 
 ------------------------------------------------------------------------
 
