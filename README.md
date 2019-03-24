@@ -7,9 +7,9 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [1 Download-Sample-Aggregate](#1-Download-Sample-Aggregate)
 -   [2 Restructuring corpus](#2-Restructuring-corpus)
 -   [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
--   [4 Filtering historical term-feature matrices](#4-Filtering-historical-term-feature-matrices)
--   [5 PPMI and SVD](#5-PPMI-and-SVD)
--   [6 Exploring collocates historically](#6-Exploring-collocates-historically)
+-   [4 Frequency and PPMI](#4-Frequency-and-PPMI)
+-   [5 Exploring collocates historically](#5-Exploring-collocates-historically)
+-   [6 Latent dimensions and SVD](#6-Latent-dimensions-and-SVD)
 -   [7 Exploring synonymny historically](#7-Exploring-synonymny-historically)
 -   [8 Summary](#8-Summary)
 
@@ -351,11 +351,7 @@ tfms[[5]][1:10,1:15]
 
 ### 4 Frequency & PPMI
 
-With historical TFMs in tow, we have two remaining issues:
-
--   Second, our matrices are quite large, and include terms/features that are super infrequent.
-
-To address the second issue, we limit terms & features to only those that occur within a given frequency range. Below, we extract form frequencies from each quarter-century TFM via matrix diagonals.
+At this point, our historical TFMs are quite large, and include terms/features that are super infrequent. Here, we extract historical frequencies from matrix diagonals to enable frequency-based filtering of matrix composition.
 
 ``` r
 freqs_by_gen <- lapply(1:8, function (x)
@@ -368,13 +364,14 @@ freqs_by_gen <- lapply(1:8, function (x)
   group_by(quarter) %>%
   mutate(corpus = sum(freq)) %>%
   ungroup() %>%
-  mutate(ppm = round(freq/corpus *1000000, 2))%>%
+  mutate(ppm = round(freq/corpus * 1000000, 2))%>%
   select(-corpus)
 ```
 
 **Historical frequencies** for a small set of forms in the sampled n-gram corpus are presented below. Note that these frequencies are very rough, and will differ some from numbers obtained directly from Google's n-gram viewer (per sampling procedure & aggregated time bins).
 
 ``` r
+set.seed(999)
 freqs_by_gen %>%
   select(-freq) %>%
   spread(quarter, ppm) %>%
@@ -382,17 +379,15 @@ freqs_by_gen %>%
   knitr::kable()
 ```
 
-| form          |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
-|:--------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
-| PRESTONPANS   |          0.24|          0.13|          0.07|          0.02|          0.10|          0.05|          0.02|           0.06|
-| SIDEBANDS     |            NA|            NA|            NA|            NA|            NA|            NA|          0.25|             NA|
-| ENCLOSES      |          0.11|          0.20|          0.30|          0.20|          0.34|          0.17|          0.28|           0.15|
-| ETYMOLOGISCHE |            NA|            NA|            NA|            NA|            NA|          0.02|            NA|             NA|
-| BUDDINGS      |            NA|            NA|          0.01|            NA|            NA|            NA|            NA|           0.01|
+| form        |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
+|:------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
+| GREYHOUNDS  |          0.64|          1.94|          0.61|          0.36|          0.09|          0.03|          0.06|           0.11|
+| MORTALL     |            NA|            NA|            NA|            NA|          0.04|            NA|          0.01|           0.01|
+| BIOGRAPHIES |          0.16|          1.32|          4.00|          4.46|          2.34|          1.94|          2.13|           1.70|
+| SUBADAR     |            NA|            NA|            NA|            NA|            NA|            NA|          0.08|             NA|
+| SCORES      |          1.82|          2.31|          4.47|          6.31|         17.76|         30.50|         30.59|          22.95|
 
-Per table above -- weirdness.
-
-Below we limit terms to those with frequencies greater than 1.5 ppm for a given quarter-century. This number will vary by time point.
+Per table above, some weird & infrequent forms in our matrices. Below we create a list of forms that occur greater than 1.5 ppm for each quarter-century. This count will vary by time point.
 
 ``` r
 filts <- freqs_by_gen %>%
@@ -404,7 +399,7 @@ filts <- freqs_by_gen %>%
 filts <- split(filts, f = filts$quarter)
 ```
 
-**Apply filters to historical TFMs**:
+Limit terms & features to forms occurring greater than 1.5 ppm:
 
 ``` r
 tfms_filtered <- lapply(1:8, function (x)
@@ -417,18 +412,16 @@ names(tfms_filtered) <- names(tfms)
 
 | quarter       |  terms|  features|
 |:--------------|------:|---------:|
-| \[1808,1833)  |  18186|      5000|
-| \[1833,1858)  |  18495|      5000|
-| \[1858,1883)  |  18878|      5000|
-| \[1883,1908)  |  18748|      5000|
-| \[1908,1933)  |  17215|      5000|
-| \[1933,1958)  |  16838|      5000|
-| \[1958,1983)  |  16492|      5000|
-| \[1983,2008\] |  16354|      5000|
+| \[1808,1833)  |  18186|     18186|
+| \[1833,1858)  |  18495|     18495|
+| \[1858,1883)  |  18878|     18878|
+| \[1883,1908)  |  18748|     18748|
+| \[1908,1933)  |  17215|     17215|
+| \[1933,1958)  |  16838|     16838|
+| \[1958,1983)  |  16492|     16492|
+| \[1983,2008\] |  16354|     16354|
 
-Convert our frequency-based co-occurrence matrices to **positive pointwise mutual information** (PPMI) matrices.
-
-The function below **calculates PPMI values** for sparse matrices, which has been slightly modified from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
+Next, we convert our frequency-based co-occurrence matrices to **positive pointwise mutual information** (PPMI) matrices. The function below calculates PPMI values for sparse matrices, which is based on code from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
 
 ``` r
 tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
@@ -436,23 +429,19 @@ tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 
 ------------------------------------------------------------------------
 
-### 6 Exploring collocates historically
+### 5 Exploring collocates historically
+
+With PPMI matrices, we can now investigate historical collocation patterns. I have developed a simple function for constructing
 
 ``` r
-search1 <-  c('BROADCAST', 'SPREAD','DISSEMINATE', 
-              'DISTRIBUTE', 'CIRCULATE', 'COMMUNICATE', 
-              'SCATTER', 'RELAY') #'DIFFUSE', 
-```
-
-``` r
+search1 <-  c('SPREAD',
+              'DISTRIBUTE', 'CIRCULATE', 
+              'SCATTER', 'COMMUNICATE') #'BROADCAST', 'RELAY'
+              
 net1 <- lapply (tfms_ppmi, lexvarsdatr::lvdr_extract_network, 
               search = search1, 
               tf_min = 4.5,
-              ff_min = 3) 
-```
-
-``` r
-y <- tfms_ppmi[[8]]
+              ff_min = 2.5) 
 ```
 
 ``` r
@@ -481,17 +470,17 @@ for (i in 1:length(net1)) {
 gridExtra::grid.arrange(grobs = g, nrow = 3)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-46-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-44-1.png)
 
 ------------------------------------------------------------------------
 
-### 5 PPMI and SVD
+### 6 Latent dimensions & SVD
 
 -   First, feature composition of each matrix is different. While differing number of terms is not necessarily problematic, we want term embeddings to be comprised of the same features historically.
 
 To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus.
 
--   Compress features to latent dimensions via *singular value decomposition* (SVD).
+-   Compress features to latent dimensions via **singular value decomposition** (SVD).
 
 **Filtering features**. Based on the frequency table above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically.
 
@@ -583,7 +572,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-57-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-55-1.png)
 
 ------------------------------------------------------------------------
 
