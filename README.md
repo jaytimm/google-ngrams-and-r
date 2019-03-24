@@ -472,6 +472,17 @@ gridExtra::grid.arrange(grobs = g, nrow = 3)
 
 ![](README_files/figure-markdown_github/unnamed-chunk-44-1.png)
 
+Take a cleaner look at collocations for a given quarter-century ...
+
+``` r
+g[[8]]+
+      ggraph::geom_node_text(aes(label = label, 
+                                 filter = group == 'feature'), 
+                             repel = TRUE, size = 2)
+```
+
+![](README_files/figure-markdown_github/unnamed-chunk-45-1.png)
+
 ------------------------------------------------------------------------
 
 ### 6 Latent dimensions & SVD
@@ -572,7 +583,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-55-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-56-1.png)
 
 ------------------------------------------------------------------------
 
