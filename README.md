@@ -349,15 +349,13 @@ tfms[[5]][1:10,1:15]
 
 ------------------------------------------------------------------------
 
-### 4 Filtering historical term-feature matrices
+### 4 Frequency & PPMI
 
 With historical TFMs in tow, we have two remaining issues:
 
--   First, feature composition of each matrix is different. While differing number of terms is not necessarily problematic, we want term embeddings to be comprised of the same features historically.
-
 -   Second, our matrices are quite large, and include terms/features that are super infrequent.
 
-To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus. To address the second issue, we limit terms & features to only those that occur within a given frequency range. Below, we extract form frequencies from each quarter-century TFM via matrix diagonals.
+To address the second issue, we limit terms & features to only those that occur within a given frequency range. Below, we extract form frequencies from each quarter-century TFM via matrix diagonals.
 
 ``` r
 freqs_by_gen <- lapply(1:8, function (x)
@@ -392,37 +390,26 @@ freqs_by_gen %>%
 | ETYMOLOGISCHE |            NA|            NA|            NA|            NA|            NA|          0.02|            NA|             NA|
 | BUDDINGS      |            NA|            NA|          0.01|            NA|            NA|            NA|            NA|           0.01|
 
-<br> **Filtering features**. Based on the frequency table above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically.
+Per table above -- weirdness.
+
+Below we limit terms to those with frequencies greater than 1.5 ppm for a given quarter-century. This number will vary by time point.
 
 ``` r
-filtered_features <- freqs_by_gen %>%
-  group_by(form) %>%
-  mutate(quarter_count = length(quarter),
-         ppm = median(ppm)) %>%
-  filter (quarter == "[1983,2008]", quarter_count == 8)%>%
-  arrange (desc(ppm)) %>%
-  ungroup() %>%
-  slice(50:5049) 
-```
-
-**Filtering terms**. We are less discerning with term filtering, as they are the point of interest. Below we limit terms to those with frequencies greater than 1.5 ppm for a given quarter-century. This number will vary by time point.
-
-``` r
-filtered_terms <- freqs_by_gen %>%
+filts <- freqs_by_gen %>%
   group_by(form, quarter) %>%
   filter (ppm > 1.5) %>%
   ungroup() %>%
   select(quarter, form)
 
-filtered_terms <- split(filtered_terms, f = filtered_terms$quarter)
+filts <- split(filts, f = filts$quarter)
 ```
 
 **Apply filters to historical TFMs**:
 
 ``` r
 tfms_filtered <- lapply(1:8, function (x)
-  tfms[[x]][rownames(tfms[[x]]) %in% filtered_terms[[x]]$form,
-            colnames(tfms[[x]]) %in% filtered_features$form])
+  tfms[[x]][rownames(tfms[[x]]) %in% filts[[x]]$form,
+            colnames(tfms[[x]]) %in% filts[[x]]$form])
 names(tfms_filtered) <- names(tfms)
 ```
 
@@ -439,15 +426,7 @@ names(tfms_filtered) <- names(tfms)
 | \[1958,1983)  |  16492|      5000|
 | \[1983,2008\] |  16354|      5000|
 
-------------------------------------------------------------------------
-
-### 5 PPMI and SVD
-
-So, a couple of final steps.
-
--   Convert our frequency-based co-occurrence matrices to *positive pointwise mutual information* (PPMI) matrices.
-
--   Compress features to latent dimensions via *singular value decomposition* (SVD).
+Convert our frequency-based co-occurrence matrices to **positive pointwise mutual information** (PPMI) matrices.
 
 The function below **calculates PPMI values** for sparse matrices, which has been slightly modified from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
 
@@ -455,39 +434,25 @@ The function below **calculates PPMI values** for sparse matrices, which has bee
 tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 ```
 
-Based on these new PPMI historical TFMs, we compress our matrices comprised of 5k features to **250 latent dimensions** via the `irlba` package.
-
-``` r
-tfms_svd <- lapply(tfms_ppmi, irlba::irlba, nv = 250) 
-```
-
-Lastly, we extract the **approximate left singular values** from the SVD object for each TFM as a simple matrix.
-
-``` r
-tfms_mats <- list()
-
-for (i in 1:8) {
-  x <- as.matrix(data.matrix(tfms_svd[[i]]$u))
-  dimnames(x) <- list(rownames(tfms_ppmi[[i]]), c(1:length(tfms_svd[[i]]$d)))
-  tfms_mats[[i]] <- x
-}
-```
-
-Importantly, each data structure has independent utility.
-
 ------------------------------------------------------------------------
 
 ### 6 Exploring collocates historically
 
 ``` r
-search1 <- search <- c('GRASP', 'COMPREHEND', 'APPRECIATE ') #'DIFFUSE', 
+search1 <-  c('BROADCAST', 'SPREAD','DISSEMINATE', 
+              'DISTRIBUTE', 'CIRCULATE', 'COMMUNICATE', 
+              'SCATTER', 'RELAY') #'DIFFUSE', 
 ```
 
 ``` r
 net1 <- lapply (tfms_ppmi, lexvarsdatr::lvdr_extract_network, 
               search = search1, 
-              tf_min = 3.5,
-              ff_min = 2) 
+              tf_min = 4.5,
+              ff_min = 3) 
+```
+
+``` r
+y <- tfms_ppmi[[8]]
 ```
 
 ``` r
@@ -516,7 +481,54 @@ for (i in 1:length(net1)) {
 gridExtra::grid.arrange(grobs = g, nrow = 3)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-50-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-46-1.png)
+
+------------------------------------------------------------------------
+
+### 5 PPMI and SVD
+
+-   First, feature composition of each matrix is different. While differing number of terms is not necessarily problematic, we want term embeddings to be comprised of the same features historically.
+
+To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus.
+
+-   Compress features to latent dimensions via *singular value decomposition* (SVD).
+
+**Filtering features**. Based on the frequency table above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically.
+
+``` r
+filtered_features <- freqs_by_gen %>%
+  group_by(form) %>%
+  mutate(quarter_count = length(quarter),
+         ppm = median(ppm)) %>%
+  filter (quarter == "[1983,2008]", quarter_count == 8)%>%
+  arrange (desc(ppm)) %>%
+  ungroup() %>%
+  slice(50:5049) 
+```
+
+``` r
+tfms_for_svd <- lapply(1:8, function (x)
+  tfms_ppmi[[x]][, colnames(tfms_ppmi[[x]]) %in% filtered_features$form])
+names(tfms_ppmi) <- names(tfms)
+```
+
+Based on these new PPMI historical TFMs, we compress our matrices comprised of 5k features to **250 latent dimensions** via the `irlba` package.
+
+``` r
+tfms_svd <- lapply(tfms_for_svd, irlba::irlba, nv = 250) 
+```
+
+Lastly, we extract the **approximate left singular values** from the SVD object for each TFM as a simple matrix.
+
+``` r
+tfms_mats <- list()
+
+for (i in 1:8) {
+  x <- as.matrix(data.matrix(tfms_svd[[i]]$u))
+  dimnames(x) <- list(rownames(tfms_ppmi[[i]]), c(1:length(tfms_svd[[i]]$d)))
+  tfms_mats[[i]] <- x
+}
+```
 
 ------------------------------------------------------------------------
 
@@ -571,7 +583,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-55-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-57-1.png)
 
 ------------------------------------------------------------------------
 
