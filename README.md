@@ -10,10 +10,10 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [4 Frequency and PPMI](#4-Frequency-and-PPMI)
 -   [5 Exploring collocates historically](#5-Exploring-collocates-historically)
 -   [6 Latent dimensions and SVD](#6-Latent-dimensions-and-SVD)
--   [7 Exploring synonymny historically](#7-Exploring-synonymny-historically)
+-   [7 Exploring synonymy historically](#7-Exploring-synonymy-historically)
 -   [8 Summary](#8-Summary)
 
-This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smaller data (ie, poor man's) approach to handling big data. A smarter aproach to working with n-gram data in its entirety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
+This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smaller data (ie, poor man's) approach to handling big data. A smarter approach to working with n-gram data in its entirety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
 
 Google n-gram data are a bit weird as a text structure. As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.
 
@@ -27,14 +27,14 @@ Google n-gram data are a bit weird as a text structure. As such, many existing t
 
 ### 0 The English One Million corpus
 
-Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words. **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alpabetically or chronologically. Instead, it seems fairly arbitrary.
+Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus. The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words. **The 5-gram corpus** is comprised of ~800 files (or sub-corpora). File composition for this corpus version is not structured alphabetically or chronologically. Instead, it seems fairly arbitrary.
 
 ``` r
 library(tidyverse)
 library(data.table)
 ```
 
-Here, we summarise **corpus token composition** by quarter-century for the most recent 200 years of text included in the corpus.
+Here, we summarize **corpus token composition** by quarter-century for the most recent 200 years of text included in the corpus.
 
 ``` r
 weights <- read.csv(
@@ -175,7 +175,7 @@ unzipped_eg %>%
 
 <br>
 
-We then **apply functions** to all ~800 files/sub-corpora, and store the output locally. Depending on connection speed, this could take a while. A good processing rate would be 3/4 files per minute. Downoading/unzipping is the limiting part of the process. Total size of processed files is ~6.7 Gb.
+We then **apply functions** to all ~800 files/sub-corpora, and store the output locally. Depending on connection speed, this could take a while. A good processing rate would be 3/4 files per minute. Downloading/unzipping is the limiting part of the process. Total size of processed files is ~6.7 Gb.
 
 ``` r
 file_names <- c(1:799)
@@ -200,7 +200,7 @@ for (i in 1:length(file_names)) {
 
 ### 2 Restructuring corpus
 
-At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurence matrices, the next step is to restructure the 5-gram data some.
+At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurrence matrices, the next step is to restructure the 5-gram data some.
 
 Per each file/sub-corpus generated above, here we:
 
@@ -209,7 +209,7 @@ Per each file/sub-corpus generated above, here we:
 -   flip 5-grams as character string to long format
 -   remove stop words
 
-Per the table above, the 5-gram **BREAK ALL THE TEN COMMANDMENTS** (!) occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below seperates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
+Per the table above, the 5-gram **BREAK ALL THE TEN COMMANDMENTS** (!) occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus. The pipe below separates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE"). The ID serves to preserve the ngram as a context of usage (or mini-text).
 
 Note that sampling here is **weighted** based on the overall quarter-century composition of the English One Million corpus. This is n-gram based, and not n-gram/frequency based. Sampling procedure was stolen from this [lovely post](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html).
 
@@ -269,7 +269,7 @@ summary <- grams[, list(tokens = sum(freq),
   arrange(quarter)
 ```
 
-While we are here, **some corpus descriptives**. These are rough estimates. Keep in mind that the token count is a bit wierd as it is based on n-grams and, hence, a single instantiation of a form in text will be counted multiple times (as it will occur in multiple n-grams). Presumably relative frequencies wash the effects of multiple counting out (assuming all forms are equally affected).
+While we are here, **some corpus descriptives**. These are rough estimates. Keep in mind that the token count is a bit weird as it is based on n-grams and, hence, a single instantiation of a form in text will be counted multiple times (as it will occur in multiple n-grams). Presumably relative frequencies wash the effects of multiple counting out (assuming all forms are equally affected).
 
 | quarter       |     tokens|  types|   ngrams|  prop\_tokens|  prop\_ngrams|
 |:--------------|----------:|------:|--------:|-------------:|-------------:|
@@ -423,6 +423,9 @@ names(tfms_filtered) <- names(tfms)
 
 Next, we convert our frequency-based co-occurrence matrices to **positive pointwise mutual information** (PPMI) matrices. The function below calculates PPMI values for sparse matrices, which is based on code from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
 
+Entropy, *E*, for a given county, *i*, is calculated as
+$$E\_i = \\sum\_{r=1}^n Q\_r ln\\frac{1}{Q\_r}$$
+
 ``` r
 tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 ```
@@ -485,15 +488,11 @@ g[[8]]+
 
 ------------------------------------------------------------------------
 
-### 6 Latent dimensions & SVD
+### 6 Latent dimensions and SVD
 
--   First, feature composition of each matrix is different. While differing number of terms is not necessarily problematic, we want term embeddings to be comprised of the same features historically.
+To investigate synonymy/nearest neighbors historically, we first need to homogenize the feature-composition of our historical PPMI TFMs -- in other words, we want term embeddings to be comprised of the same features historically.
 
-To address the first issue, we limit features to only those that occur in every quarter-century of the full corpus.
-
--   Compress features to latent dimensions via **singular value decomposition** (SVD).
-
-**Filtering features**. Based on the frequency table above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically.
+Based on the frequencies derived above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically. Then we subset feature composition of the PPMI TFMs to include only these forms.
 
 ``` r
 filtered_features <- freqs_by_gen %>%
@@ -503,16 +502,14 @@ filtered_features <- freqs_by_gen %>%
   filter (quarter == "[1983,2008]", quarter_count == 8)%>%
   arrange (desc(ppm)) %>%
   ungroup() %>%
-  slice(50:5049) 
-```
+  slice(50:5049)
 
-``` r
 tfms_for_svd <- lapply(1:8, function (x)
   tfms_ppmi[[x]][, colnames(tfms_ppmi[[x]]) %in% filtered_features$form])
 names(tfms_ppmi) <- names(tfms)
 ```
 
-Based on these new PPMI historical TFMs, we compress our matrices comprised of 5k features to **250 latent dimensions** via the `irlba` package.
+Next, we compress our matrices comprised of 5k features to **250 latent dimensions** via singular value decomposition (SVD) & the `irlba` package. The number of dimensions selected here is largely arbitrary.
 
 ``` r
 tfms_svd <- lapply(tfms_for_svd, irlba::irlba, nv = 250) 
@@ -532,9 +529,9 @@ for (i in 1:8) {
 
 ------------------------------------------------------------------------
 
-### 7 Exploring synonymny historically
+### 7 Exploring synonymy historically
 
-Finally, we are cooking with gas. Using the `neighbors` function from the `LSAfun` package.
+Finally, we are cooking with gas. Using the `neighbors` function from the `LSAfun` package, we extract historical nearest neighbors from our SVD matrices for the form **COMMUNICATE**.
 
 ``` r
 x <- lapply(tfms_mats, LSAfun::neighbors, 
@@ -542,7 +539,7 @@ x <- lapply(tfms_mats, LSAfun::neighbors,
             n = 10)
 ```
 
-Clean output.
+Output from the call to `neighbors` ia a bit messy -- the function below converts this output to a cleaner data structure.
 
 ``` r
 strip_syns <- function (x) {
@@ -555,7 +552,7 @@ strip_syns <- function (x) {
     bind_rows() }
 ```
 
-Add frequencies, and filter neighbors
+Below we apply function, and add nearest **neighbor historical frquencies** for good measure.
 
 ``` r
 syns <- x %>% strip_syns() %>%
@@ -567,7 +564,7 @@ syns <- x %>% strip_syns() %>%
   ungroup()
 ```
 
-Plot below...
+With some help from `gridExtra`, we plot nearest neighbors as a collection of tables.
 
 ``` r
 g <- list(length(tfms_mats))
@@ -583,7 +580,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-56-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-55-1.png)
 
 ------------------------------------------------------------------------
 
