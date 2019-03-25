@@ -17,7 +17,7 @@ This guide focuses on working with Google n-gram data locally. So, lots of sampl
 
 Google n-gram data are a bit weird as a text structure. As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.
 
-**ENDGAME:** Finding historical synonyms. The tables below summarize nearest neighbors for the word **GRASP** over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
+**ENDGAME:** Finding historical synonyms. The tables below summarize nearest neighbors for the word *GRASP* over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
 
 <br>
 
@@ -349,7 +349,7 @@ tfms[[5]][1:10,1:15]
 
 ------------------------------------------------------------------------
 
-### 4 Frequency & PPMI
+### 4 Frequency and PPMI
 
 At this point, our historical TFMs are quite large, and include terms/features that are super infrequent. Here, we extract historical frequencies from matrix diagonals to enable frequency-based filtering of matrix composition.
 
@@ -423,9 +423,6 @@ names(tfms_filtered) <- names(tfms)
 
 Next, we convert our frequency-based co-occurrence matrices to **positive pointwise mutual information** (PPMI) matrices. The function below calculates PPMI values for sparse matrices, which is based on code from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.
 
-Entropy, *E*, for a given county, *i*, is calculated as
-$$E\_i = \\sum\_{r=1}^n Q\_r ln\\frac{1}{Q\_r}$$
-
 ``` r
 tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 ```
@@ -434,18 +431,26 @@ tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 
 ### 5 Exploring collocates historically
 
-With PPMI matrices, we can now investigate historical collocation patterns. I have developed a simple function for constructing
+With PPMI matrices, we can now investigate historical collocation patterns. I have developed a simple function for extracting network structures from square sparse matrices for a given form or set of forms, dubbed `lexvarsdatr::lvdr_extract_network`. Output inlcudes a list of nodes and edges structured to play nice with the `tidygraph`/`ggraph` network plotting paradigm.
+
+**Nodes** include search term(s) and feature collocates with PPMI values &gt;= the value specified by the `tf_min` parameter. For searches that include multiple terms, features are assigned a primary collocate based on the relative strength of PPMI values. **Edges** include search term-feature collocates (again, &gt;=`tf_min`), as well as feature-feature collocates with PPMI values &gt;= `ff_min`.
+
+Here, we build a network structure for a set of forms with some overlapping semantic structure.
 
 ``` r
 search1 <-  c('SPREAD',
-              'DISTRIBUTE', 'CIRCULATE', 
-              'SCATTER', 'COMMUNICATE') #'BROADCAST', 'RELAY'
+              'DISTRIBUTE', 
+              'CIRCULATE', 
+              'SCATTER', 
+              'COMMUNICATE') 
               
 net1 <- lapply (tfms_ppmi, lexvarsdatr::lvdr_extract_network, 
-              search = search1, 
-              tf_min = 4.5,
-              ff_min = 2.5) 
+                search = search1, 
+                tf_min = 4.5,
+                ff_min = 2.5) 
 ```
+
+Via `tidygraph`, `ggraph` & `gridExtra`, we plot the evolution of the collocational structure among our set of terms over time.
 
 ``` r
 g <- list(length(net1))
@@ -475,7 +480,7 @@ gridExtra::grid.arrange(grobs = g, nrow = 3)
 
 ![](README_files/figure-markdown_github/unnamed-chunk-44-1.png)
 
-Take a cleaner look at collocations for a given quarter-century ...
+**For a more detailed perspective**, we plot the network structure among terms & collocates for the most contemporary quarter-century.
 
 ``` r
 g[[8]]+
@@ -531,7 +536,7 @@ for (i in 1:8) {
 
 ### 7 Exploring synonymy historically
 
-Finally, we are cooking with gas. Using the `neighbors` function from the `LSAfun` package, we extract historical nearest neighbors from our SVD matrices for the form **COMMUNICATE**.
+Finally, we are cooking with gas. Using the `neighbors` function from the `LSAfun` package, we extract historical nearest neighbors (via cosine-based similarities) from our SVD matrices for the form *COMMUNICATE*.
 
 ``` r
 x <- lapply(tfms_mats, LSAfun::neighbors, 
@@ -552,7 +557,7 @@ strip_syns <- function (x) {
     bind_rows() }
 ```
 
-Below we apply function, and add nearest **neighbor historical frquencies** for good measure.
+Below we apply function, and add **nearest neighbor historical frquencies** for good measure.
 
 ``` r
 syns <- x %>% strip_syns() %>%
