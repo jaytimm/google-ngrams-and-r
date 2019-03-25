@@ -5,21 +5,772 @@ output:
     toc: FALSE
 ---
 
-##Google n-gram data & R: some methods 
+##Google n-gram data & R: some methods & hacks
 
-An R-based guide to accessing & sampling Google n-gram data and building some common text structures.
+An R-based guide to accessing/sampling Google n-gram data & building historical term-feature matrices for investigating lexical semantic change historically.
+
+- [0 The English One Million corpus](#0-The-English-One_Million-corpus)
+- [1 Download-Sample-Aggregate](#1-Download-Sample-Aggregate)
+- [2 Restructuring corpus](#2-Restructuring-corpus)
+- [3 Building historical term-feature matrices](#3-Building-historical-term-feature-matrices)
+- [4 Frequency and PPMI](#4-Frequency-and-PPMI)
+- [5 Exploring collocates historically](#5-Exploring-collocates-historically)
+- [6 Latent dimensions and SVD](#6-Latent-dimensions-and-SVD)
+- [7 Exploring synonymy historically](#7-Exploring-synonymy-historically)
+- [8 Summary](#8-Summary)
 
 
-- [1 Downloading and sampling](#1-Downloading-and-sampling)
-- [2 Building lexicon](#2-Building-lexicon)
-- [3 Historical frequency](#3-Historical-frequency)
-- [4 Building feature matrices](#4-Building-frequency-matrices)
+This guide focuses on working with Google n-gram data locally.  So, lots of sampling & intermediary file structures. A smarter approach to working with n-gram data in its entirety would be to build a SQL database.  Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.  
 
-A developing resource. 
+Google n-gram data are a bit weird as a text structure.  As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.   
+
+**ENDGAME:** Finding historical synonyms.  The tables below summarize nearest neighbors for the word *GRASP* over the last 200 years (by quarter century), including cosine-based similarities (value) & term frequencies in parts per million (ppm).
+
+<br>
+
+```{r echo=FALSE, fig.height=6, message=FALSE, warning=FALSE}
+library(tidyverse)
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+tfms_mats <- readRDS('tfms_mats.rds')
+
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+freqs_by_gen <- readRDS('freqs_by_gen.rds')
+
+search <- toupper('grasp')
+x <- lapply(tfms_mats, LSAfun::neighbors, x = search , n = 100)
+
+strip_syns <- function (x) {
+  lapply(1:length(x), function(y)  
+    x[[y]] %>%
+    as.tibble %>% 
+    rownames_to_column(var = 'form') %>%
+    mutate (quarter = names(x[y]),
+            value = round(value,2))
+    ) %>%
+    bind_rows() }
+
+syns <- x %>% strip_syns() %>%
+  inner_join(freqs_by_gen) %>%
+  mutate(ppm = round(ppm, 1)) %>%
+  select(-freq) %>%
+  group_by(quarter) %>%
+  arrange( desc(value))%>%
+  slice(1:10)%>%
+  ungroup()
+
+g <- list(length(tfms_mats))
+tt <- gridExtra::ttheme_default(base_size = 7)
+
+for (i in 1:length(tfms_mats)) {
+  g[[i]] <- syns %>% 
+    filter (quarter == names(tfms_mats[i])) %>%
+    rename(!!names(tfms_mats[i]) := form) %>% 
+    select(-quarter)%>%
+    gridExtra::tableGrob(rows=NULL, theme = tt) }
+
+gridExtra::grid.arrange(grobs = g, nrow = 2)
+```
+
+
+---
+
+### 0 The English One Million corpus
+
+Google has a host of corpora -- here we work with the corpus dubbed the **English One Million** corpus.  The corpus is comprised of texts published from the 16th century to the start of the 21st, and includes over 100 billion words.  **The 5-gram corpus** is comprised of ~800 files (or sub-corpora).  File composition for this corpus version is not structured alphabetically or chronologically.  Instead, it seems fairly arbitrary.  
 
 ```{r message=FALSE, warning=FALSE}
 library(tidyverse)
+library(data.table)
+```
+
+
+Here, we summarize **corpus token composition** by quarter-century for the most recent 200 years of text included in the corpus, which will be our focus here.
+
+```{r}
+weights <- read.csv(
+  url('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-totalcounts-20090715.txt'), 
+                    sep = '\t', 
+                    header = FALSE, 
+                    skip = 1) %>%
+  select(V1,V2) %>%
+  rename(yop = V1, tokens = V2) %>%
+  filter(yop >=1808 & yop <= 2008)
+
+weights$quarter <- cut(weights$yop, seq(1808, 2008, 25), 
+              right=FALSE,
+              include.lowest = TRUE,
+              dig.lab = 4) 
+
+weights <- weights %>% 
+  group_by(quarter) %>%
+  summarise(tokens = sum(as.numeric(tokens))) %>%
+  ungroup() %>%
+  mutate(prop_tokens = round(tokens / sum(tokens),3))
+```
+
+
+```{r echo=FALSE}
+weights %>% knitr::kable()
+```
+
+
+---
+
+
+### 1 Download-Sample-Aggregate
+
+To start the sampling process, we build two simple functions.  The **first function** downloads & unzips a single file of the corpus to a temporary folder.
+
+```{r}
+get_zip_csv <- function (url) {
+
+  temp <- tempdir()
+  zip_name <- paste0(temp, '\\', basename(url))
+  download.file(url, zip_name, 
+                quiet = TRUE)
+  unzip(zip_name, exdir = temp)
+  out <- data.table::fread(gsub('\\.zip', '', zip_name), 
+                           blank.lines.skip = TRUE, 
+                           quote="", 
+                           encoding = 'UTF-8')
+  unlink(temp) 
+  out}
+```
+
+
+A **random portion** of the first file of the 5-gram corpus is presented below:
+
+* V1 = 5-gram
+* V2 = Date of publication
+* V3 = token frequency of 5-gram in sub-corpus
+* V4 = page count of 5-gram in sub-corpus
+* V5 = volume (or text frequency) count of 5-gram in sub-corpus
+
+
+```{r eval=FALSE}
+url <- 'http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gram-20090715-1.csv.zip'
+unzipped_eg <- get_zip_csv(url)  #~11 million rows.
+unzipped_eg %>% sample_n(5) %>% knitr::kable()
+```
+
+
+```{r echo=FALSE, message=FALSE, warning=FALSE}
+unzipped_eg <- data.table::fread("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\egs\\googlebooks-eng-1M-5gram-20090715-1.csv") 
+set.seed(1999)
+unzipped_eg %>%
+  sample_n(5) %>%
+  knitr::kable()
+```
+
+
+The **second function** performs a variety of tasks with the aim of sampling & aggregating the raw 5-gram files.  Function parameters & details:
+
+* filter sub-corpus by dates of publication
+* sample sub-corpus
+* remove 5-ngrams with punctuation
+* create new time bins
+* aggregate 5-gram frequencies per new time bins
+* sample again
+
+Sampling procedure could certainly be more systematic. Here, we are only interested in token frequencies.
+
+
+```{r}
+sample_ngram <- function (x, 
+                          start_date, end_date, 
+                          generation, 
+                          samp1, samp2) {
+  
+  x <- x[V2 >= start_date & V2 <= end_date ]
+  set.seed(99)
+  x <- x[sample(1:nrow(x), samp1, 
+                replace=FALSE),] 
+  x <- x[grepl("^[a-z ]+$", V1, ignore.case = TRUE)] 
+  #Remove grams with punctuation
+  x$V9 <- cut(x$V2, seq(start_date,end_date,generation), 
+              right=FALSE,
+              include.lowest = TRUE,
+              dig.lab = 4) #Create new time bins
+  x[, V1 := toupper(V1)]
+  x <- x[, list(V3 = sum(V3)), by = list(V1, V9)] 
+  #Aggregate freqs to new time bins
+  setnames(x, 
+           old = c('V1', 'V9', 'V3'), 
+           new = c('five_gram', 'quarter', 'freq'))
+  set.seed(99)
+  x[sample(1:nrow(x), samp2,
+                replace=FALSE),]
+}
+```
+
+
+
+**The table below** presents a random portion of the sampled/aggregated output. (n-grams out of context are always perfect little poems.)
+
+```{r eval=FALSE}
+unzipped_eg %>%
+  sample_ngram(start_date = 1808,
+               end_date = 2008,
+               generation = 25,
+               samp1 = 5000000,
+               samp2 = 200000) %>%
+  sample_n(5) %>%
+  knitr::kable()
+```
+
+
+```{r echo=FALSE}
+data.table::fread("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\egs\\eng-1M-5gram-20090715-1.csv") %>%
+  sample_n(5) %>%
+  knitr::kable()
+```
+
+
+
+<br>
+
+We then **apply functions** to all ~800 files/sub-corpora, and store the output locally.  Depending on connection speed, this could take a while.  A good processing rate would be 3/4 files per minute. Downloading/unzipping is the limiting part of the process.  Total size of processed files is ~6.7 Gb.
+
+
+```{r include=FALSE}
+local_raw <- "C:\\Users\\jason\\Desktop\\raw"
+```
+
+
+```{r eval=FALSE}
+file_names <- c(1:799)
+setwd(local_raw)
+
+for (i in 1:length(file_names)) {
+  url <- paste0('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gram-20090715-', file_names[i], '.csv.zip')
+  
+  get_zip_csv(url) %>%
+    sample_ngram(start_date = 1808,
+                 end_date = 2008,
+                 generation = 25,
+                 samp1 = 5000000,
+                 samp2 = 200000)%>%
+    write.csv(., 
+            gsub('(^.*googlebooks-)(.*)(\\.zip)', '\\2', url), 
+            row.names = FALSE) 
+  }
 ```
 
 ---
+
+
+### 2 Restructuring corpus
+
+At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus.  At ~6.7 Gb, it is still a bit big for use locally in R.  With the goal of building n-gram-based co-occurrence matrices, the next step is to restructure the 5-gram data some.
+
+Per each file/sub-corpus generated above, here we:
+
+* take a weighted sample 5-grams
+* uniquely id 5-grams
+* flip 5-grams as character string to long format
+* remove stop words
+
+
+Per the table above, the 5-gram **BREAK ALL THE TEN COMMANDMENTS** (!) occurred 4 times during the quarter-century spanning 1958-1983 in the *first file* of the ngram corpus.  The pipe below separates each form in the ngram into five rows, assigns each row/form the frequency of the ngram (4), uniquely identifies the ngram in the sub-corpus, and removes rows in the ngram containing stopwords (here, "ALL" and "THE").  The ID serves to preserve the ngram as a context of usage (or mini-text). 
+
+Note that sampling here is **weighted** based on the overall quarter-century composition of the English One Million corpus.  This is n-gram based, and not n-gram/frequency based.  Sampling procedure was stolen from this [lovely post](https://jennybc.github.io/purrr-tutorial/ls12_different-sized-samples.html).
+
+
+```{r eval=FALSE}
+setwd(local_raw)
+gfiles <- list.files(path=local_raw, 
+                     pattern = ".csv", 
+                     recursive=TRUE) 
+
+grams <- lapply(1:length(gfiles), function (y)
+  #Sample per jennybc
+  data.table::fread(gfiles[y])%>%
+  arrange(quarter) %>%
+  group_by(quarter) %>% 
+  nest() %>%            
+  mutate(n = round(75000* weights$prop,0)) %>% 
+  mutate(samp = map2(data, n, sample_n)) %>% 
+  select(quarter, samp) %>%
+  unnest()%>%
+  
+  #Restructure
+  rename(ngram = five_gram) %>%
+  mutate(id = as.integer(row_number())) %>%
+  separate_rows (ngram, sep = ' ') %>% #Make ngram long
+  filter(!ngram %in% toupper(corpuslingr::clr_ref_stops))%>% #Remove stop words
+  as.data.table()
+)
+
+names(grams) <- file_names
+```
+
+
+
+```{r eval=FALSE, include=FALSE}
+#setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+#saveRDS(grams, 'grams.rds')
+```
+
+
+```{r eval=FALSE, include=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+grams <- readRDS('grams.rds')
+
+#Output example.
+#setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+#saveRDS(grams[[2]], 'grams_eg.rds')
+```
+
+
+The **resulting data structure** is a list of data frames, with each data frame representing a sub-corpus as a bag-of-words (with frequencies aggregated by n-gram constituents and quarter-century). A sample portion of this structure is presented below.  
+
+
+```{r echo=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\egs")
+grams_eg <- readRDS('grams_eg.rds')
+head(grams_eg) %>% knitr::kable()
+```
+
+
+The next step is to convert our list of randomly assembled sub-corpora into a list of **generation-based** sub-corpora. So, we first collapse our list of sub-corpora into a single corpus, and uniquely identify each 5-gram. 
+
+```{r eval=FALSE}
+grams <- grams %>% data.table::rbindlist(idcol = 'corp') 
+setkey(grams, corp, id)
+grams[ , id := .GRP, by = key(grams)]
+grams[, corp := NULL]  #nrow = 120,920,432
+```
+
+```{r eval=FALSE, message=FALSE, warning=FALSE}
+summary <- grams[, list(tokens = sum(freq), 
+                        types = length(unique(ngram)),
+                        ngrams = length(unique(id))), 
+                 by=quarter] %>% 
+  arrange(quarter)
+```
+
+```{r eval=FALSE, include=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+saveRDS(summary, 'summary.rds')
+```
+
+
+```{r include=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+summary <- readRDS('summary.rds')
+```
+
+
+While we are here, **some corpus descriptives**.  These are rough estimates.  Keep in mind that the token count is a bit weird as it is based on n-grams and, hence, a single instantiation of a form in text will be counted multiple times (as it will occur in multiple n-grams).  Presumably relative frequencies wash the effects of multiple counting out (assuming all forms are equally affected).
+
+```{r echo=FALSE}
+summary %>% mutate(prop_tokens = round(tokens/sum(tokens),3),
+                   prop_ngrams = round(ngrams/sum(ngrams),3)) %>%
+  knitr::kable()
+```
+
+
+Lastly, we **re-split the corpus into eight sub-corpora**, one for each quarter-century.
+
+```{r eval=FALSE}
+setorder(grams, quarter, id)
+grams <- split(grams, f = grams$quarter) 
+grams <- lapply(grams, select, -quarter) 
+```
+
+
+```{r eval=FALSE, include=FALSE}
+#setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+#saveRDS(grams, 'grams_by_gen.rds')
+```
+
+---
+
+
+### 3 Building historical term-feature matrices
+
+At this point, we are finished with the time- & memory-consumptive portion of the workflow.  Next, we want to transform each of our sub-corpora into a term-feature matrix (TFM).  
+
+
+```{r eval=FALSE, include=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+grams <- readRDS('grams_by_gen.rds')
+```
+
+
+Treating each uniquely identified 5-gram as a "document," we first transform each sub-corpus into a Document-Term Matrix (DTM) using the `cast_sparse` function from the `tidytext` package.  For our purposes here, this is an intermediary data structure.  We then convert the DTM to a term-feature matrix using the `Dtm2Tcm` function from the `testmineR` package. This particular workflow is ideal when working with aggregated text structures as a starting point.  
+
+
+```{r eval=FALSE}
+tfms <- lapply(1:8, function (y)
+  
+  grams[[y]] %>%
+    tidytext::cast_sparse(id, 
+                          ngram, 
+                          freq) %>%
+    textmineR::Dtm2Tcm() %>%
+    .[, order(colnames(.))] %>%
+    .[order(rownames(.)), ]
+  
+) #632.2 Mb
+
+names(tfms) <- names(grams)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+#setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+#saveRDS(tfms, 'tfms.rds')
+```
+
+
+```{r include=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+tfms <- readRDS('tfms.rds')
+```
+
+
+A small portion of the TFM for the **1908-1932** sub-corpus is presented below.  
+
+```{r message=FALSE, warning=FALSE}
+library(Matrix)
+tfms[[5]][1:10,1:15] 
+```
+
+**Full data structure** is a list of TFMs by quarter-century, with the following dimensions: 
+
+```{r eval=FALSE, include=FALSE}
+lapply(tfms, dim) 
+```
+
+
+```{r echo=FALSE}
+lapply(tfms, dim) %>%
+  data.table::melt(.) %>%
+  bind_cols(type = rep(c('terms','features'), 8)) %>%
+  spread(type, value) %>%
+  rename(quarter = L1) %>%
+  select(quarter, terms, features)%>%
+  knitr::kable()
+```
+
+---
+
+
+### 4 Frequency and PPMI
+
+At this point, our historical TFMs are quite large, and include terms/features that are super infrequent. Here, we extract historical frequencies from matrix diagonals to enable frequency-based filtering of matrix composition.
+
+```{r message=FALSE, warning=FALSE}
+freqs_by_gen <- lapply(1:8, function (x)
+  data.frame(form = rownames(tfms[[x]]), 
+             freq = diag(tfms[[x]]),
+             quarter = rep(names(tfms[x]), nrow(tfms[[x]])),
+             stringsAsFactors = FALSE) 
+  ) %>%
+  bind_rows() %>%
+  group_by(quarter) %>%
+  mutate(corpus = sum(freq)) %>%
+  ungroup() %>%
+  mutate(ppm = round(freq/corpus * 1000000, 2))%>%
+  select(-corpus)
+```
+
+
+**Historical frequencies** for a small set of forms in the sampled n-gram corpus are presented below.  Note that these frequencies are very rough, and will differ some from numbers obtained directly from Google's n-gram viewer (per sampling procedure & aggregated time bins).
+
+```{r message=FALSE, warning=FALSE}
+set.seed(999)
+freqs_by_gen %>%
+  select(-freq) %>%
+  spread(quarter, ppm) %>%
+  sample_n(5) %>%
+  knitr::kable()
+```
+
+
+```{r include=FALSE}
+#setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+#saveRDS(freqs_by_gen, 'freqs_by_gen.rds')
+```
+
+
+Per table above, some weird & infrequent forms in our matrices.  Below we create a list of forms that occur greater than 1.5 ppm for each quarter-century.  This count will vary by time point.
+
+```{r eval=FALSE}
+filts <- freqs_by_gen %>%
+  group_by(form, quarter) %>%
+  filter (ppm > 1.5) %>%
+  ungroup() %>%
+  select(quarter, form)
+
+filts <- split(filts, f = filts$quarter)
+```
+
+
+**Limit terms & features** to forms occurring greater than 1.5 ppm:
+
+```{r eval=FALSE}
+tfms_filtered <- lapply(1:8, function (x)
+  tfms[[x]][rownames(tfms[[x]]) %in% filts[[x]]$form,
+            colnames(tfms[[x]]) %in% filts[[x]]$form])
+names(tfms_filtered) <- names(tfms)
+```
+
+```{r include=FALSE}
+#setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+#saveRDS(tfms_filtered, 'tfms_filtered.rds')
+```
+
+
+```{r include=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+tfms_filtered <- readRDS('tfms_filtered.rds')
+```
+
+
+**Dimension details** for our new matrices are presented below.  
+
+```{r eval=FALSE, include=FALSE}
+lapply(tfms_filtered, dim)
+```
+
+```{r echo=FALSE}
+lapply(tfms_filtered, dim) %>%
+  data.table::melt(.) %>%
+  bind_cols(type = rep(c('terms','features'), 8)) %>%
+  spread(type, value) %>%
+  rename(quarter = L1) %>%
+  select(quarter, terms, features)%>%
+  knitr::kable()
+```
+
+
+Next, we convert our frequency-based co-occurrence matrices to **positive pointwise mutual information** (PPMI) matrices.  The function below calculates PPMI values for sparse matrices, which is based on code from an SO post available [here](https://stackoverflow.com/questions/43354479/how-to-efficiently-calculate-ppmi-on-a-sparse-matrix-in-r), and cached in my package `lexvarsdatr`.  
+
+
+```{r eval=FALSE}
+tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+names(tfms_ppmi) <- names(tfms)
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+saveRDS(tfms_ppmi, 'tfms_ppmi.rds')
+```
+
+
+
+---
+
+### 5 Exploring collocates historically
+
+With PPMI matrices, we can now investigate historical collocation patterns.  I have developed a simple function for extracting network structures from square sparse matrices for a given form or set of forms, dubbed `lexvarsdatr::lvdr_extract_network`.  Output inlcudes a list of nodes and edges structured to play nice with the `tidygraph`/`ggraph` network plotting paradigm.
+
+**Nodes** include search term(s) and feature collocates with PPMI values >= the value specified by the `tf_min` parameter.  For searches that include multiple terms, features are assigned a primary collocate based on the relative strength of PPMI values.  **Edges** include search term-feature collocates (again, >=`tf_min`), as well as feature-feature collocates with PPMI values >= `ff_min`.
+
+
+```{r include=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+tfms_ppmi <- readRDS('tfms_ppmi.rds')
+```
+
+
+Here, we build a network structure for a set of forms with some overlapping semantic structure.
+
+```{r}
+search1 <-  c('SPREAD',
+              'DISTRIBUTE', 
+              'CIRCULATE', 
+              'SCATTER', 
+              'COMMUNICATE') 
+              
+net1 <- lapply (tfms_ppmi, lexvarsdatr::lvdr_extract_network, 
+                search = search1, 
+                tf_min = 4.5,
+                ff_min = 2.5) 
+```
+
+
+Via `tidygraph`, `ggraph` & `gridExtra`, we plot the evolution of the collocational structure among our set of terms over time.
+
+```{r fig.height=8, message=FALSE, warning=FALSE}
+g <- list(length(net1))
+set.seed(999)
+for (i in 1:length(net1)) {
+  g[[i]] <- net1[[i]] %>%
+    tidygraph::as_tbl_graph() %>%
+      ggraph::ggraph() +
+      ggraph::geom_edge_link(color = 'darkgray') + #alpha = 0.8
+      ggraph::geom_node_point(aes(size = value, 
+                                  color = search_term,
+                                  shape =group)) +
+      ggraph::geom_node_text(aes(label = label, 
+                                 filter = group == 'term'), 
+                             repel = TRUE, size = 2.35)+
+      ggthemes::scale_color_stata()+
+      ggthemes::theme_fivethirtyeight() +
+      ggtitle(names(net1[i]))+
+      theme(legend.position = "none",
+            plot.title = element_text(size=11),
+            axis.text.x = element_blank(),
+            axis.text.y = element_blank())
+}
+
+gridExtra::grid.arrange(grobs = g, nrow = 3)
+```
+
+
+
+**For a more detailed perspective**, we plot the network structure among terms & collocates for the most contemporary quarter-century.
+
+
+```{r fig.height=6}
+g[[8]]+
+      ggraph::geom_node_text(aes(label = label, 
+                                 filter = group == 'feature'), 
+                             repel = TRUE, size = 2)
+
+```
+
+
+
+
+---
+
+
+### 6 Latent dimensions and SVD
+
+To investigate synonymy/nearest neighbors historically, we first need to homogenize the feature-composition of our historical PPMI TFMs -- in other words, we want term embeddings to be comprised of the same features historically.
+
+Based on the frequencies derived above, we create a list of forms that occur in every quarter-century; then we filter these forms to the 50th to 5,049th most frequent based on median frequencies historically.  Then we subset feature composition of the PPMI TFMs to include only these forms.
+
+```{r eval=FALSE}
+filtered_features <- freqs_by_gen %>%
+  group_by(form) %>%
+  mutate(quarter_count = length(quarter),
+         ppm = median(ppm)) %>%
+  filter (quarter == "[1983,2008]", quarter_count == 8)%>%
+  arrange (desc(ppm)) %>%
+  ungroup() %>%
+  slice(50:5049)
+
+tfms_for_svd <- lapply(1:8, function (x)
+  tfms_ppmi[[x]][, colnames(tfms_ppmi[[x]]) %in% filtered_features$form])
+names(tfms_ppmi) <- names(tfms)
+```
+
+
+Next, we compress our matrices comprised of 5k features to **250 latent dimensions** via singular value decomposition (SVD) & the `irlba` package.  The number of dimensions selected here is largely arbitrary.
+
+```{r eval=FALSE}
+tfms_svd <- lapply(tfms_for_svd, irlba::irlba, nv = 250) 
+```
+
+
+```{r eval=FALSE, include=FALSE}
+#names(tfms_svd) <- names(tfms_ppmi)
+#setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+#saveRDS(tfms_svd, 'tfms_svd.rds')
+```
+
+
+Lastly, we extract the **approximate left singular values** from the SVD object for each TFM as a simple matrix.
+
+```{r eval=FALSE}
+tfms_mats <- list()
+
+for (i in 1:8) {
+  x <- as.matrix(data.matrix(tfms_svd[[i]]$u))
+  dimnames(x) <- list(rownames(tfms_ppmi[[i]]), c(1:length(tfms_svd[[i]]$d)))
+  tfms_mats[[i]] <- x
+}
+```
+
+```{r eval=FALSE, include=FALSE}
+#names(tfms_mats) <- names(tfms_ppmi)
+#setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+#saveRDS(tfms_mats, 'tfms_mats.rds')
+```
+
+
+---
+
+
+
+### 7 Exploring synonymy historically
+
+```{r include=FALSE}
+setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+tfms_mats <- readRDS('tfms_mats.rds')
+```
+
+
+Finally, we are cooking with gas. Using the `neighbors` function from the `LSAfun` package, we extract historical nearest neighbors (via cosine-based similarities) from our SVD matrices for the form *COMMUNICATE*. 
+
+```{r}
+x <- lapply(tfms_mats, LSAfun::neighbors, 
+            x = toupper('communicate'), 
+            n = 10)
+```
+
+
+Output from the call to `neighbors` ia a bit messy -- the function below converts this output to a cleaner data structure.
+
+```{r message=FALSE, warning=FALSE}
+strip_syns <- function (x) {
+  lapply(1:length(x), function(y)  
+    x[[y]] %>%
+    as.tibble %>% 
+    rownames_to_column(var = 'form') %>%
+    mutate (quarter = names(x[y]),
+            value = round(value,2))) %>%
+    bind_rows() }
+```
+
+
+Below we apply function, and add **nearest neighbor historical frquencies** for good measure.
+
+```{r message=FALSE, warning=FALSE}
+syns <- x %>% strip_syns() %>%
+  inner_join(freqs_by_gen) %>%
+  mutate(ppm = round(ppm, 1)) %>%
+  select(-freq) %>%
+  group_by(quarter) %>%
+  arrange(desc(value))%>%
+  ungroup()
+```
+
+
+With some help from `gridExtra`, we plot nearest neighbors as a collection of tables.
+
+```{r fig.height=6}
+g <- list(length(tfms_mats))
+tt <- gridExtra::ttheme_default(base_size = 7)
+
+for (i in 1:length(tfms_mats)) {
+  g[[i]] <- syns %>% 
+    filter (quarter == names(tfms_mats[i])) %>%
+    rename(!!names(tfms_mats[i]) := form) %>% 
+    select(-quarter)%>%
+    gridExtra::tableGrob(rows=NULL, theme = tt) }
+
+gridExtra::grid.arrange(grobs = g, nrow = 2)
+```
+
+
+```{r eval=FALSE, include=FALSE}
+#setwd("C:\\Users\\jtimm\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+#saveRDS(tfms_mats, 'tfms_mats.rds')
+```
+
+
+---
+
+
+### 8 Summary
+
+
+While academic linguists are often critical of Google n-gram data, it is still an incredible (cultural & linguistic) resource.  Despite a fairly small sample of the full English One Million n-gram data set, we still get some fairly nice & intuitive results for synonyms/nearest neighbors.  Certainly useful for exploratory purposes, as well as general pedagogical purposes.
 

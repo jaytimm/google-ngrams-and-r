@@ -13,7 +13,7 @@ An R-based guide to accessing/sampling Google n-gram data & building historical 
 -   [7 Exploring synonymy historically](#7-Exploring-synonymy-historically)
 -   [8 Summary](#8-Summary)
 
-This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smaller data (ie, poor man's) approach to handling big data. A smarter approach to working with n-gram data in its entirety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
+This guide focuses on working with Google n-gram data locally. So, lots of sampling & intermediary file structures. A smarter approach to working with n-gram data in its entirety would be to build a SQL database. Here, we just want to steal some n-gram data to demonstrate a few methods & take a peak into some changes in word distributions historically.
 
 Google n-gram data are a bit weird as a text structure. As such, many existing text-analytic R packages/functions (that often assume raw text as a starting point) are not especially helpful here. So, we have to hack-about some to get from Google n-gram data to historical term-feature matrices.
 
@@ -34,7 +34,7 @@ library(tidyverse)
 library(data.table)
 ```
 
-Here, we summarize **corpus token composition** by quarter-century for the most recent 200 years of text included in the corpus.
+Here, we summarize **corpus token composition** by quarter-century for the most recent 200 years of text included in the corpus, which will be our focus here.
 
 ``` r
 weights <- read.csv(
@@ -399,7 +399,7 @@ filts <- freqs_by_gen %>%
 filts <- split(filts, f = filts$quarter)
 ```
 
-Limit terms & features to forms occurring greater than 1.5 ppm:
+**Limit terms & features** to forms occurring greater than 1.5 ppm:
 
 ``` r
 tfms_filtered <- lapply(1:8, function (x)
@@ -591,6 +591,4 @@ gridExtra::grid.arrange(grobs = g, nrow = 2)
 
 ### 8 Summary
 
-While academic linguists (of the functional/cognitive/usage-based varieties) are often critical of Google n-gram data, it is still an incredible cultural resource.
-
-Many of the methodological decisions made here can certainly be tweaked to improve results.
+While academic linguists are often critical of Google n-gram data, it is still an incredible (cultural & linguistic) resource. Despite a fairly small sample of the full English One Million n-gram data set, we still get some fairly nice & intuitive results for synonyms/nearest neighbors. Certainly useful for exploratory purposes, as well as general pedagogical purposes.
