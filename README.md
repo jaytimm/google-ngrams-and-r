@@ -200,7 +200,7 @@ for (i in 1:length(file_names)) {
 
 ### 2 Restructuring corpus
 
-At this point, we have successfully stolen a very small portion of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurrence matrices, the next step is to restructure the 5-gram data some.
+At this point, we have successfully stolen a very small portion (~1%) of the 5-gram corpus derived from the 100+ billion word Google corpus. At ~6.7 Gb, it is still a bit big for use locally in R. With the goal of building n-gram-based co-occurrence matrices, the next step is to restructure the 5-gram data some.
 
 Per each file/sub-corpus generated above, here we:
 
@@ -591,4 +591,8 @@ gridExtra::grid.arrange(grobs = g, nrow = 2)
 
 ### 8 Summary
 
-While academic linguists are often critical of Google n-gram data, it is still an incredible (cultural & linguistic) resource. Despite a fairly small sample of the full English One Million n-gram data set, we still get some fairly nice & intuitive results for synonyms/nearest neighbors. Certainly useful for exploratory purposes, as well as general pedagogical purposes.
+While linguists are often critical of Google n-gram data, it is still an incredible (cultural & linguistic) resource. Despite a fairly small sample of the full English One Million n-gram data set, we still get some fairly nice & intuitive results for synonyms/nearest neighbors. Certainly useful for exploratory purposes, as well as general pedagogical purposes.
+
+Word embeddings based on the 1% sample of the English One Million corpus are available [here](https://github.com/jaytimm/google_ngrams_and_R/tree/master/google_one_percent_embeddings). For a demonstration on aligning historical word embeddings and visualizing lexical semantic change, see this [post](https://www.jtimm.net/2019/04/14/lexical-change-procrustres/)
+
+<https://www.jtimm.net/2019/01/17/xochitl-torres-small-win-2018/>
