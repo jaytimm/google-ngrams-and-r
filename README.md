@@ -593,6 +593,4 @@ gridExtra::grid.arrange(grobs = g, nrow = 2)
 
 While linguists are often critical of Google n-gram data, it is still an incredible (cultural & linguistic) resource. Despite a fairly small sample of the full English One Million n-gram data set, we still get some fairly nice & intuitive results for synonyms/nearest neighbors. Certainly useful for exploratory purposes, as well as general pedagogical purposes.
 
-Word embeddings based on the 1% sample of the English One Million corpus are available [here](https://github.com/jaytimm/google_ngrams_and_R/tree/master/google_one_percent_embeddings). For a demonstration on aligning historical word embeddings and visualizing lexical semantic change, see this [post](https://www.jtimm.net/2019/04/14/lexical-change-procrustres/)
-
-<https://www.jtimm.net/2019/01/17/xochitl-torres-small-win-2018/>
+Word embeddings based on the 1% sample of the English One Million corpus are available [here](https://github.com/jaytimm/google_ngrams_and_R/tree/master/google_one_percent_embeddings). For a demonstration on aligning historical word embeddings and visualizing lexical semantic change, see this [post](https://www.jtimm.net/2019/04/14/lexical-change-procrustes/).
