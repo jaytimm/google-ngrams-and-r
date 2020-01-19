@@ -546,14 +546,9 @@ search1 <-  c('SPREAD',
               'SCATTER', 
               'COMMUNICATE') 
          
-#net1 <- lexvarsdatr::lvdr_extract_network (tfm = tfms_ppmi, 
-#                                                 target = search1,
-#                                                 n = 15)
-
-
 net1 <- lapply (tfms_ppmi, lexvarsdatr::lvdr_extract_network, 
                 target = search1, 
-                n = 20) 
+                n = 15)
 ```
 
 Via `tidygraph`, `ggraph` & `gridExtra`, we plot the evolution of the
