@@ -1,4 +1,5 @@
-\#\#Google n-gram data & R: some methods & hacks
+Google n-gram data & R: some methods & hacks
+--------------------------------------------
 
 An R-based guide to accessing/sampling Google n-gram data & building
 historical term-feature matrices for investigating lexical semantic
