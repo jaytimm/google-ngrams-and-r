@@ -30,19 +30,21 @@ Google n-gram data are a bit weird as a text structure.  As such, many existing 
 
 ```{r echo=FALSE, fig.height=6, message=FALSE, warning=FALSE}
 library(tidyverse)
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/matrices")
 tfms_mats <- readRDS('tfms_mats.rds')
 
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R")
 freqs_by_gen <- readRDS('freqs_by_gen.rds')
 
 search <- toupper('grasp')
 x <- lapply(tfms_mats, LSAfun::neighbors, x = search , n = 100)
 
+y <- 1
+
 strip_syns <- function (x) {
   lapply(1:length(x), function(y)  
     x[[y]] %>%
-    as.tibble %>% 
+    as_tibble(rownames = NA) %>% 
     rownames_to_column(var = 'form') %>%
     mutate (quarter = names(x[y]),
             value = round(value,2))
@@ -129,7 +131,8 @@ get_zip_csv <- function (url) {
   download.file(url, zip_name, 
                 quiet = TRUE)
   unzip(zip_name, exdir = temp)
-  out <- data.table::fread(gsub('\\.zip', '', zip_name), 
+  setwd(temp) ##
+  out <- data.table::fread(gsub('\\.zip', '', basename(url)), ## gsub('\\.zip', '', zip_name), 
                            blank.lines.skip = TRUE, 
                            quote="", 
                            encoding = 'UTF-8')
@@ -155,7 +158,7 @@ unzipped_eg %>% sample_n(5) %>% knitr::kable()
 
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-unzipped_eg <- data.table::fread("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\egs\\googlebooks-eng-1M-5gram-20090715-1.csv") 
+unzipped_eg <- data.table::fread("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data/egs/googlebooks-eng-1M-5gram-20090715-1.csv") 
 set.seed(1999)
 unzipped_eg %>%
   sample_n(5) %>%
@@ -220,7 +223,7 @@ unzipped_eg %>%
 
 
 ```{r echo=FALSE}
-data.table::fread("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\egs\\eng-1M-5gram-20090715-1.csv") %>%
+data.table::fread("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data/egs/eng-1M-5gram-20090715-1.csv") %>%
   sample_n(5) %>%
   knitr::kable()
 ```
@@ -233,24 +236,24 @@ We then **apply functions** to all ~800 files/sub-corpora, and store the output 
 
 
 ```{r include=FALSE}
-local_raw <- "C:\\Users\\jason\\Desktop\\raw"
+local_raw <- "/home/jtimm/Desktop/raw/"
 ```
 
 
 ```{r eval=FALSE}
 file_names <- c(1:799)
-setwd(local_raw)
 
 for (i in 1:length(file_names)) {
   url <- paste0('http://storage.googleapis.com/books/ngrams/books/googlebooks-eng-1M-5gram-20090715-', file_names[i], '.csv.zip')
   
-  get_zip_csv(url) %>%
+  xx <-   get_zip_csv(url) %>%
     sample_ngram(start_date = 1808,
                  end_date = 2008,
                  generation = 25,
                  samp1 = 5000000,
-                 samp2 = 200000)%>%
-    write.csv(., 
+                 samp2 = 200000)
+  setwd(local_raw)
+  write.csv(xx, 
             gsub('(^.*googlebooks-)(.*)(\\.zip)', '\\2', url), 
             row.names = FALSE) 
   }
@@ -277,28 +280,31 @@ Note that sampling here is **weighted** based on the overall quarter-century com
 
 
 ```{r eval=FALSE}
-setwd(local_raw)
 gfiles <- list.files(path=local_raw, 
                      pattern = ".csv", 
                      recursive=TRUE) 
 
-grams <- lapply(1:length(gfiles), function (y)
+locs <- paste0(local_raw, gfiles)
+
+grams <- lapply(1:length(locs), function (y)
   #Sample per jennybc
-  data.table::fread(gfiles[y])%>%
-  arrange(quarter) %>%
-  group_by(quarter) %>% 
-  nest() %>%            
-  mutate(n = round(75000* weights$prop,0)) %>% 
-  mutate(samp = map2(data, n, sample_n)) %>% 
-  select(quarter, samp) %>%
-  unnest()%>%
+  data.table::fread(locs[y])%>%
+    arrange(quarter) %>%
+    group_by(quarter) %>%
+    nest() %>%  
+    ungroup() %>% ## This was issue detected 1/17/20 !!
+    mutate(n = round(75000* weights$prop_tokens,0)) %>% 
+    mutate(samp = map2(data, n, sample_n)) %>% 
+    select(quarter, samp) %>%
+    unnest() %>%
   
   #Restructure
-  rename(ngram = five_gram) %>%
-  mutate(id = as.integer(row_number())) %>%
-  separate_rows (ngram, sep = ' ') %>% #Make ngram long
-  filter(!ngram %in% toupper(corpuslingr::clr_ref_stops))%>% #Remove stop words
-  as.data.table()
+    rename(ngram = five_gram) %>%
+    mutate(id = as.integer(row_number())) %>%
+    separate_rows (ngram, sep = ' ') %>% #Make ngram long
+    filter(!ngram %in% toupper(corpuslingr::clr_ref_stops))%>% #Remove stop words
+    ## Probably better to use tm::stopwords() !!!
+    as.data.table()
 )
 
 names(grams) <- file_names
@@ -313,7 +319,7 @@ names(grams) <- file_names
 
 
 ```{r eval=FALSE, include=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data")
 grams <- readRDS('grams.rds')
 
 #Output example.
@@ -326,7 +332,7 @@ The **resulting data structure** is a list of data frames, with each data frame 
 
 
 ```{r echo=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data\\egs")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data/egs")
 grams_eg <- readRDS('grams_eg.rds')
 head(grams_eg) %>% knitr::kable()
 ```
@@ -350,13 +356,13 @@ summary <- grams[, list(tokens = sum(freq),
 ```
 
 ```{r eval=FALSE, include=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data")
 saveRDS(summary, 'summary.rds')
 ```
 
 
 ```{r include=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data")
 summary <- readRDS('summary.rds')
 ```
 
@@ -393,7 +399,7 @@ At this point, we are finished with the time- & memory-consumptive portion of th
 
 
 ```{r eval=FALSE, include=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\data")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data")
 grams <- readRDS('grams_by_gen.rds')
 ```
 
@@ -425,7 +431,7 @@ names(tfms) <- names(grams)
 
 
 ```{r include=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/matrices")
 tfms <- readRDS('tfms.rds')
 ```
 
@@ -524,7 +530,7 @@ names(tfms_filtered) <- names(tfms)
 
 
 ```{r include=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/matrices")
 tfms_filtered <- readRDS('tfms_filtered.rds')
 ```
 
@@ -556,7 +562,7 @@ tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 
 ```{r eval=FALSE, include=FALSE}
 names(tfms_ppmi) <- names(tfms)
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/matrices")
 saveRDS(tfms_ppmi, 'tfms_ppmi.rds')
 ```
 
@@ -572,12 +578,12 @@ With PPMI matrices, we can now investigate historical collocation patterns.  I h
 
 
 ```{r include=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/matrices")
 tfms_ppmi <- readRDS('tfms_ppmi.rds')
 ```
 
 
-Here, we build a network structure for a set of forms with some overlapping semantic structure.
+Here, we build a network structure for a set of forms with some overlapping semantic structure.  Note: It probably makes more sense to use the `igraph` package for extracting subgraphs from larger networks, 1/19/20.
 
 ```{r}
 search1 <-  c('SPREAD',
@@ -585,11 +591,15 @@ search1 <-  c('SPREAD',
               'CIRCULATE', 
               'SCATTER', 
               'COMMUNICATE') 
-              
+         
+#net1 <- lexvarsdatr::lvdr_extract_network (tfm = tfms_ppmi, 
+#                                                 target = search1,
+#                                                 n = 15)
+
+
 net1 <- lapply (tfms_ppmi, lexvarsdatr::lvdr_extract_network, 
-                search = search1, 
-                tf_min = 4.5,
-                ff_min = 2.5) 
+                target = search1, 
+                n = 20) 
 ```
 
 
@@ -604,8 +614,8 @@ for (i in 1:length(net1)) {
       ggraph::ggraph() +
       ggraph::geom_edge_link(color = 'darkgray') + #alpha = 0.8
       ggraph::geom_node_point(aes(size = value, 
-                                  color = search_term,
-                                  shape =group)) +
+                                  color = term,
+                                  shape = group)) +
       ggraph::geom_node_text(aes(label = label, 
                                  filter = group == 'term'), 
                              repel = TRUE, size = 2.35)+
@@ -702,7 +712,7 @@ for (i in 1:8) {
 ### 7 Exploring synonymy historically
 
 ```{r include=FALSE}
-setwd("C:\\Users\\jason\\Google Drive\\GitHub\\git_projects\\google_ngrams_and_R\\matrices")
+setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/matrices")
 tfms_mats <- readRDS('tfms_mats.rds')
 ```
 
@@ -722,7 +732,7 @@ Output from the call to `neighbors` ia a bit messy -- the function below convert
 strip_syns <- function (x) {
   lapply(1:length(x), function(y)  
     x[[y]] %>%
-    as.tibble %>% 
+    as_tibble(rownames = NA)  %>% 
     rownames_to_column(var = 'form') %>%
     mutate (quarter = names(x[y]),
             value = round(value,2))) %>%
