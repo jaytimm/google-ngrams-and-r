@@ -522,23 +522,29 @@ tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
 ### 5 Exploring collocates historically
 
 With PPMI matrices, we can now investigate historical collocation
-patterns. I have developed a simple function for extracting network
-structures from square sparse matrices for a given form or set of forms,
-dubbed `lexvarsdatr::lvdr_extract_network`. Output inlcudes a list of
-nodes and edges structured to play nice with the `tidygraph`/`ggraph`
-network plotting paradigm.
+patterns. I have developed a simple function for extracting (sub-)
+network structures from square sparse matrices for a given form or set
+of forms, dubbed `lexvarsdatr::lvdr_extract_network`. Output inlcudes a
+list of nodes and edges structured to play nice with the
+`tidygraph`/`ggraph` network plotting paradigm.
 
-**Nodes** include search term(s) and feature collocates with PPMI values
-&gt;= the value specified by the `tf_min` parameter. For searches that
-include multiple terms, features are assigned a primary collocate based
-on the relative strength of PPMI values. **Edges** include search
-term-feature collocates (again, &gt;=`tf_min`), as well as
-feature-feature collocates with PPMI values &gt;= `ff_min`.
+The number of nodes (per term) to include in the network is specified by
+the n parameter, ie, the n highest scoring features associated with a
+term from a term-feature matrix. Term-nodes and feature-nodes are
+distinguished in the output for visualization purposes. If multiple
+terms are specified, nodes are filtered to the strongest (ie, primary)
+term-feature relationships (to remove potential duplicates). Edges
+include the n-highest scoring term-feature associations for specified
+terms, as well as the n most frequent node-node associations per node
+(term & feature).
+
+Note: In general, it probably makes more sense to use the `igraph`
+package for extracting subgraphs from larger networks. The approach
+presented here is super-informal & aimed at quick visualization, as
+opposed to investigating, eg, more formal network properties.
 
 Here, we build a network structure for a set of forms with some
-overlapping semantic structure. Note: It probably makes more sense to
-use the `igraph` package for extracting subgraphs from larger networks,
-1/19/20.
+overlapping semantic structure.
 
 ``` r
 search1 <-  c('SPREAD',
