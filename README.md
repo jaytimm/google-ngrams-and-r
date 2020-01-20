@@ -454,7 +454,7 @@ rough, and will differ some from numbers obtained directly from Google’s
 n-gram viewer (per sampling procedure & aggregated time bins).
 
 ``` r
-set.seed(999)
+set.seed(199)
 freqs_by_gen %>%
   select(-freq) %>%
   spread(quarter, ppm) %>%
@@ -462,13 +462,13 @@ freqs_by_gen %>%
   knitr::kable()
 ```
 
-| form                   |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
-|:-----------------------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
-| HEPHAESTION            |            NA|            NA|            NA|            NA|            NA|          0.01|          0.01|           0.01|
-| ASSOZIATIONSFESTIGKEIT |            NA|            NA|            NA|          0.01|          0.11|            NA|            NA|             NA|
-| ANTEQUERA              |            NA|           0.2|            NA|          0.01|            NA|            NA|            NA|             NA|
-| SCENE                  |        257.44|         325.1|        289.59|        235.81|        187.46|        160.71|        149.29|         182.41|
-| GOEING                 |            NA|            NA|            NA|          0.09|            NA|            NA|            NA|             NA|
+| form       |  \[1808,1833)|  \[1833,1858)|  \[1858,1883)|  \[1883,1908)|  \[1908,1933)|  \[1933,1958)|  \[1958,1983)|  \[1983,2008\]|
+|:-----------|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|-------------:|--------------:|
+| NESS       |          0.86|          0.30|          0.64|          0.26|          0.30|          0.09|          0.15|           0.18|
+| FAMILLE    |          0.03|            NA|          0.04|          0.22|          0.13|          0.10|          0.14|           0.15|
+| COMPRADOR  |            NA|            NA|            NA|            NA|            NA|            NA|          0.18|           0.08|
+| DENOUNCING |          1.07|          1.06|          1.52|          1.35|          0.91|          0.57|          0.62|           0.40|
+| MEAN       |        443.86|        298.08|        380.18|        364.41|        444.72|        591.75|        556.08|         630.70|
 
 Per table above, some weird & infrequent forms in our matrices. Below we
 create a list of forms that occur greater than 1.5 ppm for each
@@ -514,7 +514,12 @@ from an SO post available
 and cached in my package `lexvarsdatr`.
 
 ``` r
-tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
+devtools::install_github("jaytimm/lexvarsdatr")
+```
+
+``` r
+tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_calc_ppmi)
+names(tfms_ppmi) <- names(tfms)
 ```
 
 ------------------------------------------------------------------------
@@ -587,7 +592,7 @@ for (i in 1:length(net1)) {
 gridExtra::grid.arrange(grobs = g, nrow = 3)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-44-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-45-1.png)
 
 **For a more detailed perspective**, we plot the network structure among
 terms & collocates for the most contemporary quarter-century.
@@ -599,7 +604,7 @@ g[[8]]+
                              repel = TRUE, size = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-45-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-46-1.png)
 
 ------------------------------------------------------------------------
 
@@ -711,7 +716,7 @@ for (i in 1:length(tfms_mats)) {
 gridExtra::grid.arrange(grobs = g, nrow = 2)
 ```
 
-![](README_files/figure-markdown_github/unnamed-chunk-55-1.png)
+![](README_files/figure-markdown_github/unnamed-chunk-56-1.png)
 
 ------------------------------------------------------------------------
 

@@ -39,8 +39,6 @@ freqs_by_gen <- readRDS('freqs_by_gen.rds')
 search <- toupper('grasp')
 x <- lapply(tfms_mats, LSAfun::neighbors, x = search , n = 100)
 
-y <- 1
-
 strip_syns <- function (x) {
   lapply(1:length(x), function(y)  
     x[[y]] %>%
@@ -356,8 +354,8 @@ summary <- grams[, list(tokens = sum(freq),
 ```
 
 ```{r eval=FALSE, include=FALSE}
-setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data")
-saveRDS(summary, 'summary.rds')
+#setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/data")
+#saveRDS(summary, 'summary.rds')
 ```
 
 
@@ -486,7 +484,7 @@ freqs_by_gen <- lapply(1:8, function (x)
 **Historical frequencies** for a small set of forms in the sampled n-gram corpus are presented below.  Note that these frequencies are very rough, and will differ some from numbers obtained directly from Google's n-gram viewer (per sampling procedure & aggregated time bins).
 
 ```{r message=FALSE, warning=FALSE}
-set.seed(999)
+set.seed(199)
 freqs_by_gen %>%
   select(-freq) %>%
   spread(quarter, ppm) %>%
@@ -556,14 +554,19 @@ Next, we convert our frequency-based co-occurrence matrices to **positive pointw
 
 
 ```{r eval=FALSE}
-tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_build_sparse_ppmi)
+devtools::install_github("jaytimm/lexvarsdatr")
+```
+
+
+```{r eval=FALSE}
+tfms_ppmi <- lapply(tfms_filtered, lexvarsdatr::lvdr_calc_ppmi)
+names(tfms_ppmi) <- names(tfms)
 ```
 
 
 ```{r eval=FALSE, include=FALSE}
-names(tfms_ppmi) <- names(tfms)
-setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/matrices")
-saveRDS(tfms_ppmi, 'tfms_ppmi.rds')
+#setwd("/home/jtimm/jt_work/GitHub/git_projects/google_ngrams_and_R/matrices")
+#saveRDS(tfms_ppmi, 'tfms_ppmi.rds')
 ```
 
 
